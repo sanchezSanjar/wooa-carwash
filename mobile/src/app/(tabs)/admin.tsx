@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { CarMeta } from '@/components/car-card';
-import { AppText, Badge, Banner, Button, Card, EmptyState, Loading, Screen } from '@/components/ui';
+import { AppText, Badge, Banner, Button, Card, DateStrip, EmptyState, Loading, Screen } from '@/components/ui';
 import { Fonts, Radius, Spacing, useTheme } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { dateChip, formatKRW, STATUS_LABEL, upcomingDates } from '@/lib/format';
+import { formatKRW, STATUS_LABEL, upcomingDates } from '@/lib/format';
 import type { DayPlanItem, Extra, Tariff, WashStatus } from '@/lib/types';
 
 export default function AdminScreen() {
@@ -39,30 +39,11 @@ function Dashboard() {
 }
 
 function Route() {
-  const theme = useTheme();
   const dates = useMemo(() => upcomingDates(14), []);
   const [date, setDate] = useState(dates[0]);
   return (
     <>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm }}>
-        {dates.map((d, i) => {
-          const chip = dateChip(d);
-          const active = d === date;
-          return (
-            <Pressable
-              key={d}
-              onPress={() => setDate(d)}
-              style={[styles.dateChip, { backgroundColor: active ? theme.primary : theme.card, borderColor: active ? theme.primary : theme.border }]}>
-              <AppText variant="caption" color={active ? '#fff' : theme.textSecondary}>
-                {i === 0 ? 'Today' : chip.weekday}
-              </AppText>
-              <AppText variant="label" color={active ? '#fff' : theme.text}>
-                {chip.month} {chip.day}
-              </AppText>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <DateStrip dates={dates} value={date} onChange={setDate} compact />
       <DayRoute key={date} date={date} />
     </>
   );
@@ -276,7 +257,6 @@ function PriceRow({
 const styles = StyleSheet.create({
   segment: { flexDirection: 'row', padding: 4, borderRadius: Radius.md, alignSelf: 'flex-start' },
   segmentItem: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, borderRadius: Radius.sm },
-  dateChip: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, borderRadius: Radius.md, borderWidth: 1, alignItems: 'center' },
   stats: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
   aptHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.sm },
   itemHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },

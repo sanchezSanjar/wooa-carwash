@@ -4,40 +4,50 @@ import { Platform } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+/**
+ * Quiet, editorial palette: ink-black actions on white, a single green accent.
+ * In dark mode the roles invert (light actions on near-black).
+ */
 export const Colors = {
   light: {
-    text: '#0B1B2B',
-    textSecondary: '#5B6B7C',
-    background: '#F4F7FB',
+    text: '#14171A',
+    textSecondary: '#5F6670',
+    background: '#FFFFFF',
+    surface: '#F6F7F8',
     card: '#FFFFFF',
-    border: '#DCE3EC',
-    primary: '#1565E8',
+    border: '#E2E5E9',
+    primary: '#14171A',
     primaryText: '#FFFFFF',
-    primarySoft: '#E3EDFD',
-    danger: '#D93636',
-    dangerSoft: '#FDECEC',
-    success: '#16834A',
-    successSoft: '#E3F6EB',
-    warning: '#A86400',
-    warningSoft: '#FFF3DC',
-    muted: '#EEF2F7',
+    primarySoft: '#F1F3F5',
+    accent: '#1E7F55',
+    accentSoft: '#E4F4EC',
+    danger: '#C93434',
+    dangerSoft: '#FCECEC',
+    success: '#1E7F55',
+    successSoft: '#E4F4EC',
+    warning: '#9A5B00',
+    warningSoft: '#FFF2DB',
+    muted: '#EEF0F2',
   },
   dark: {
-    text: '#EAF1F8',
-    textSecondary: '#9AABBD',
-    background: '#07111C',
-    card: '#0F1D2C',
-    border: '#1F3146',
-    primary: '#4A8DFF',
-    primaryText: '#FFFFFF',
-    primarySoft: '#13294A',
+    text: '#F2F3F5',
+    textSecondary: '#A2A9B3',
+    background: '#0E1012',
+    surface: '#15181B',
+    card: '#17191C',
+    border: '#2A2E33',
+    primary: '#F2F3F5',
+    primaryText: '#0E1012',
+    primarySoft: '#23272B',
+    accent: '#5CCB93',
+    accentSoft: '#163323',
     danger: '#FF6B6B',
     dangerSoft: '#3A1719',
-    success: '#4CCB85',
-    successSoft: '#10301F',
+    success: '#5CCB93',
+    successSoft: '#163323',
     warning: '#F0B04A',
     warningSoft: '#33260F',
-    muted: '#152536',
+    muted: '#1E2125',
   },
 } as const;
 
@@ -49,8 +59,9 @@ export function useTheme(): ThemeColors {
 }
 
 export const Fonts = Platform.select({
-  web: { sans: 'var(--font-display)', mono: 'var(--font-mono)' },
-  default: { sans: undefined, mono: 'monospace' },
+  web: { sans: 'var(--font-display)', serif: 'var(--font-serif)', mono: 'var(--font-mono)' },
+  ios: { sans: undefined, serif: 'Georgia', mono: 'Menlo' },
+  default: { sans: undefined, serif: 'serif', mono: 'monospace' },
 });
 
 export const Spacing = {
@@ -64,4 +75,4 @@ export const Spacing = {
 
 export const Radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
 
-export const MaxContentWidth = 960;
+export const MaxContentWidth = 1040;

@@ -5,24 +5,45 @@ import { Spacing, useTheme } from '@/constants/theme';
 import { formatKRW } from '@/lib/format';
 import type { Extra, Tariff } from '@/lib/types';
 
-import { AppText, Card } from './ui';
+import { AppText, Badge, Button, Card } from './ui';
 
-export function TariffCards({ tariffs }: { tariffs: Tariff[] }) {
+/** The plan most customers pick gets a tag. */
+const POPULAR_WASHES = 4;
+
+export function TariffCards({
+  tariffs,
+  actionLabel = 'Choose this plan',
+  onChoose,
+}: {
+  tariffs: Tariff[];
+  actionLabel?: string;
+  onChoose?: (t: Tariff) => void;
+}) {
   const theme = useTheme();
   return (
     <View style={styles.grid}>
       {tariffs.map((t) => (
         <Card key={t.id} style={styles.card}>
-          <AppText variant="heading">{t.name}</AppText>
-          <AppText variant="title" color={theme.primary} style={{ fontSize: 24, lineHeight: 30 }}>
-            {formatKRW(t.price)}
-            <AppText variant="caption"> / month</AppText>
-          </AppText>
+          <View style={styles.head}>
+            <View style={{ flex: 1, gap: Spacing.xs }}>
+              <AppText variant="heading">{t.name}</AppText>
+              {t.washesPerMonth === POPULAR_WASHES ? <Badge label="Most popular" tone="success" /> : null}
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <AppText variant="heading" style={{ fontSize: 22, lineHeight: 28 }}>
+                {formatKRW(t.price)}
+              </AppText>
+              <AppText variant="caption">per month</AppText>
+            </View>
+          </View>
           <View style={styles.line}>
             <Ionicons name="water-outline" size={15} color={theme.textSecondary} />
-            <AppText variant="label">{t.washesPerMonth} washes per month</AppText>
+            <AppText variant="label">{t.washesPerMonth} washes a month</AppText>
           </View>
-          <AppText variant="caption">{t.description}</AppText>
+          <AppText variant="caption" style={{ flex: 1 }}>
+            {t.description}
+          </AppText>
+          {onChoose ? <Button title={actionLabel} onPress={() => onChoose(t)} style={{ marginTop: Spacing.sm }} /> : null}
         </Card>
       ))}
     </View>
@@ -30,15 +51,22 @@ export function TariffCards({ tariffs }: { tariffs: Tariff[] }) {
 }
 
 export function ExtrasList({ extras }: { extras: Extra[] }) {
+  const theme = useTheme();
   return (
-    <Card style={{ gap: Spacing.md }}>
-      {extras.map((e) => (
-        <View key={e.id} style={styles.extra}>
+    <Card style={{ gap: 0, paddingVertical: Spacing.sm }}>
+      {extras.map((e, i) => (
+        <View
+          key={e.id}
+          style={[
+            styles.extra,
+            i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+          ]}>
           <View style={{ flex: 1 }}>
             <AppText variant="label">{e.name}</AppText>
             {e.description ? <AppText variant="caption">{e.description}</AppText> : null}
           </View>
-          <AppText variant="label">+{formatKRW(e.price)} / wash</AppText>
+          <AppText variant="label">+{formatKRW(e.price)}</AppText>
+          <AppText variant="caption">/ wash</AppText>
         </View>
       ))}
     </Card>
@@ -47,7 +75,8 @@ export function ExtrasList({ extras }: { extras: Extra[] }) {
 
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.lg },
-  card: { flexGrow: 1, flexBasis: 240 },
+  card: { flexGrow: 1, flexBasis: 260, gap: Spacing.sm, padding: Spacing.xl },
+  head: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
   line: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  extra: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  extra: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.md },
 });
