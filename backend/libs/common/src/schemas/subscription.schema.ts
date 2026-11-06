@@ -4,8 +4,42 @@ import { HydratedDocument, Types } from 'mongoose';
 export const SubscriptionStatus = { Active: 'active', Cancelled: 'cancelled' } as const;
 export type SubscriptionStatus = (typeof SubscriptionStatus)[keyof typeof SubscriptionStatus];
 
-export const WashStatus = { Done: 'done', Skipped: 'skipped' } as const;
+/** planned: stored only once photos exist but the wash is not marked yet. */
+export const WashStatus = { Planned: 'planned', Done: 'done', Skipped: 'skipped' } as const;
 export type WashStatus = (typeof WashStatus)[keyof typeof WashStatus];
+
+export const PhotoKind = {
+  /** Pre-wash inspection: existing scratches and dents. */
+  Before: 'before',
+  /** Finished car. */
+  After: 'after',
+} as const;
+export type PhotoKind = (typeof PhotoKind)[keyof typeof PhotoKind];
+
+@Schema({ timestamps: { createdAt: true, updatedAt: false } })
+export class WashPhoto {
+  @Prop({ type: String, enum: Object.values(PhotoKind), required: true })
+  kind: PhotoKind;
+
+  /** Path under the uploads folder, e.g. "washes/<sub>/<date>/<id>.jpg". */
+  @Prop({ required: true })
+  key: string;
+
+  @Prop({ trim: true, default: '' })
+  note: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  uploadedBy?: Types.ObjectId;
+}
+
+@Schema({ _id: false, timestamps: { createdAt: true, updatedAt: true } })
+export class WashReview {
+  @Prop({ required: true, min: 1, max: 5 })
+  rating: number;
+
+  @Prop({ trim: true, default: '' })
+  comment: string;
+}
 
 @Schema({ _id: false })
 export class ScheduleDay {
@@ -91,6 +125,17 @@ export class Wash {
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
   recordedBy?: Types.ObjectId;
+
+  /** Set when the car was washed on another day than scheduled (moved on a day sheet). */
+  @Prop()
+  washedOn?: string;
+
+  @Prop({ type: [SchemaFactory.createForClass(WashPhoto)], default: [] })
+  photos: (WashPhoto & { _id: Types.ObjectId; createdAt?: Date })[];
+
+  /** The member's rating of this wash. */
+  @Prop({ type: SchemaFactory.createForClass(WashReview) })
+  review?: WashReview & { createdAt?: Date; updatedAt?: Date };
 }
 
 export type SubscriptionDocument = HydratedDocument<Subscription>;
@@ -106,3 +151,4 @@ SubscriptionSchema.index(
 export const WashSchema = SchemaFactory.createForClass(Wash);
 WashSchema.index({ subscription: 1, date: 1 }, { unique: true });
 WashSchema.index({ date: 1 });
+WashSchema.index({ 'review.createdAt': -1 }, { sparse: true });

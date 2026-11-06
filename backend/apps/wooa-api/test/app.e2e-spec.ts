@@ -2,6 +2,10 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
+import sharp from 'sharp';
+import { mkdtempSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { addDays, today, weekday, weekdayOccurrence } from '@app/common/dates';
 import { normalizePhone } from '@app/common/phone';
 import { SmsService } from '@app/common/sms/sms.service';
@@ -17,6 +21,7 @@ let tariffs: { id: string; washesPerMonth: number; price: number }[];
 let extras: { id: string; name: string; price: number }[];
 let carId: string;
 let subId: string;
+let doneDay: string;
 
 const MON = 1;
 const WED = 3;
@@ -68,6 +73,7 @@ beforeAll(async () => {
   process.env.JWT_SECRET = 'test-secret';
   process.env.JWT_EXPIRES_IN = '1h';
   process.env.ADMIN_PHONES = '010-9999-0000';
+  process.env.UPLOAD_DIR = mkdtempSync(join(tmpdir(), 'wooa-uploads-'));
   delete process.env.SOLAPI_API_KEY; // never send real SMS from tests
 
   const { AppModule } = await import('../src/app.module');
@@ -287,7 +293,8 @@ describe('subscriptions', () => {
       .expect(400);
 
     const after = await request(http).get('/subscriptions/me').set(auth(kim)).expect(200);
-    expect(after.body[0].history).toEqual([{ date: washDay, status: 'done', note: '' }]);
+    expect(after.body[0].history).toEqual([{ date: washDay, status: 'done', note: '', photos: 0, rating: null }]);
+    doneDay = washDay;
 
     // the member is told the car was washed
     const inbox = await request(http).get('/notifications/me').set(auth(kim)).expect(200);
@@ -298,13 +305,94 @@ describe('subscriptions', () => {
     expect((await request(http).get('/notifications/me').set(auth(kim)).expect(200)).body.unread).toBe(0);
   });
 
+  it('lets washers add before/after photos that the owner can see', async () => {
+    const washer = await request(http)
+      .post('/members')
+      .set(auth(admin))
+      .send({ name: 'Choi Washer', phone: '010-6666-7777', apartmentName: 'Wooa', role: 'washer', password: 'washer-pass-1' })
+      .expect(201);
+    expect(washer.body.hasPassword).toBe(true);
+    const washerToken = (
+      await request(http).post('/auth/login').send({ phone: '010-6666-7777', password: 'washer-pass-1' }).expect(200)
+    ).body.accessToken;
+
+    await request(http).get('/washes').query({ date: doneDay }).set(auth(washerToken)).expect(200); // route
+    await request(http).get('/members').set(auth(washerToken)).expect(403); // not member data
+    await request(http).patch(`/tariffs/${tariffs[0].id}`).set(auth(washerToken)).send({ price: 1 }).expect(403);
+
+    const png = await sharp({ create: { width: 40, height: 30, channels: 3, background: '#3366cc' } }).png().toBuffer();
+    const upload = (token: string, kind: string) =>
+      request(http)
+        .post('/washes/photos')
+        .set(auth(token))
+        .field('subscriptionId', subId)
+        .field('date', doneDay)
+        .field('kind', kind)
+        .field('note', kind === 'before' ? 'Scratch on rear bumper' : '')
+        .attach('file', png, 'car.png');
+    await upload(kim, 'before').expect(403); // members cannot upload
+    const before = await upload(washerToken, 'before').expect(201);
+    await upload(washerToken, 'after').expect(201);
+    expect(before.body.url).toMatch(/^\/uploads\/washes\/.+\.jpg$/);
+    await request(http).get(before.body.url).expect(200).expect('content-type', /image\/jpeg/);
+
+    const detail = await request(http)
+      .get('/washes/detail')
+      .query({ subscriptionId: subId, date: doneDay })
+      .set(auth(kim))
+      .expect(200);
+    expect(detail.body.photos.map((p: { kind: string }) => p.kind)).toEqual(['before', 'after']);
+    expect(detail.body.photos[0].note).toBe('Scratch on rear bumper');
+    expect(detail.body.canReview).toBe(true);
+    await request(http).get('/washes/detail').query({ subscriptionId: subId, date: doneDay }).set(auth(lee)).expect(404);
+
+    await request(http).delete(`/washes/photos/${detail.body.photos[1].id}`).set(auth(washerToken)).expect(204);
+  });
+
+  it('lets the owner rate a finished wash', async () => {
+    const ref = { subscriptionId: subId, date: doneDay };
+    await request(http).put('/washes/review').set(auth(kim)).send({ ...ref, rating: 6 }).expect(400);
+    await request(http).put('/washes/review').set(auth(lee)).send({ ...ref, rating: 5 }).expect(404);
+    const review = await request(http)
+      .put('/washes/review')
+      .set(auth(kim))
+      .send({ ...ref, rating: 5, comment: 'Spotless!' })
+      .expect(200);
+    expect(review.body).toMatchObject({ rating: 5, comment: 'Spotless!' });
+
+    const reviews = await request(http).get('/washes/reviews').set(auth(admin)).expect(200);
+    expect(reviews.body[0]).toMatchObject({ plateNumber: '12가 3456', memberName: 'Kim Minjun', review: { rating: 5 } });
+    const mine = await request(http).get('/subscriptions/me').set(auth(kim)).expect(200);
+    expect(mine.body[0].history[0]).toMatchObject({ photos: 1, rating: 5 });
+  });
+
+  it('lets members change their tariff', async () => {
+    const basic = tariffs.find((t) => t.washesPerMonth === 2)!;
+    await request(http)
+      .patch(`/subscriptions/${subId}/tariff`)
+      .set(auth(kim))
+      .send({ tariffId: basic.id, schedule: sixTimes })
+      .expect(400); // 6 washes don't fit a 2-wash tariff
+    const changed = await request(http)
+      .patch(`/subscriptions/${subId}/tariff`)
+      .set(auth(kim))
+      .send({ tariffId: basic.id, schedule: [{ weekday: MON, weeks: [2, 4] }] })
+      .expect(200);
+    expect(changed.body).toMatchObject({ tariffName: 'Basic', washesPerMonth: 2 });
+    await request(http)
+      .patch(`/subscriptions/${subId}/tariff`)
+      .set(auth(lee))
+      .send({ tariffId: basic.id, schedule: [{ weekday: MON, weeks: [2, 4] }] })
+      .expect(404);
+  });
+
   it('changes extras, cancels, then frees the car', async () => {
     const updated = await request(http)
       .patch(`/subscriptions/${subId}`)
       .set(auth(kim))
       .send({ extraIds: [] })
       .expect(200);
-    expect(updated.body.monthlyPrice).toBe(tariffs.find((t) => t.washesPerMonth === 6)!.price);
+    expect(updated.body.monthlyPrice).toBe(tariffs.find((t) => t.washesPerMonth === 2)!.price);
 
     await request(http).patch(`/subscriptions/${subId}/cancel`).set(auth(lee)).expect(404);
     const cancelled = await request(http).patch(`/subscriptions/${subId}/cancel`).set(auth(kim)).expect(200);

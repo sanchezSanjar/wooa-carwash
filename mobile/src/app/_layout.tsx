@@ -42,6 +42,7 @@ function RootStack() {
         <Stack.Screen name="(auth)/forgot" options={{ title: 'Reset password', presentation: 'modal' }} />
         <Stack.Screen name="car/[id]" options={{ title: 'Car' }} />
         <Stack.Screen name="plan/[carId]" options={{ title: 'Wash plan' }} />
+        <Stack.Screen name="wash/[subscriptionId]/[date]" options={{ title: 'Wash' }} />
       </Stack>
     </ThemeProvider>
   );

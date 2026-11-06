@@ -33,7 +33,14 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Wooa Carwash uses your photos to attach pictures of a car to its wash.",
+          "cameraPermission": "Wooa Carwash uses the camera to photograph cars before and after a wash."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

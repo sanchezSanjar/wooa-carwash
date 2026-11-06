@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../auth/jwt.strategy';
 import { CurrentUser, Role, Roles, RolesGuard } from '../auth/roles';
 import type { AuthUser } from '../auth/roles';
 import {
+  ChangeTariffDto,
   CreateSubscriptionDto,
   DayQueryDto,
   SetWashStatusDto,
@@ -32,6 +33,11 @@ export class SubscriptionsController {
   @Roles(Role.Admin)
   all() {
     return this.subs.listAll();
+  }
+
+  @Patch(':id/tariff')
+  changeTariff(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ChangeTariffDto) {
+    return this.subs.changeTariff(user, id, dto);
   }
 
   @Patch(':id')

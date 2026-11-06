@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { MembersPanel } from '@/components/admin/members-panel';
+import { ReviewsPanel } from '@/components/admin/reviews-panel';
 import { CarMeta } from '@/components/car-card';
 import { AppText, Badge, Banner, Button, Card, DateStrip, EmptyState, Loading, Screen } from '@/components/ui';
 import { Fonts, Radius, Spacing, useTheme } from '@/constants/theme';
@@ -13,8 +14,13 @@ import { useAuth } from '@/lib/auth';
 import { formatKRW, formatPhone, STATUS_LABEL, upcomingDates } from '@/lib/format';
 import type { DayPlanItem, Extra, Tariff, WashStatus } from '@/lib/types';
 
-type Tab = 'route' | 'members' | 'prices';
-const TAB_LABEL: Record<Tab, string> = { route: 'Wash route', members: 'Members', prices: 'Plans & prices' };
+type Tab = 'route' | 'members' | 'reviews' | 'prices';
+const TAB_LABEL: Record<Tab, string> = {
+  route: 'Wash route',
+  members: 'Members',
+  reviews: 'Reviews',
+  prices: 'Plans & prices',
+};
 
 export default function AdminScreen() {
   const { user } = useAuth();
@@ -26,7 +32,7 @@ function Dashboard({ isAdmin }: { isAdmin: boolean }) {
   const theme = useTheme();
   const [tab, setTab] = useState<Tab>('route');
   // washers only see the route; admins see everything
-  const tabs: Tab[] = isAdmin ? ['route', 'members', 'prices'] : ['route'];
+  const tabs: Tab[] = isAdmin ? ['route', 'members', 'reviews', 'prices'] : ['route'];
   return (
     <Screen>
       <AppText variant="title">Manage</AppText>
@@ -41,7 +47,7 @@ function Dashboard({ isAdmin }: { isAdmin: boolean }) {
           ))}
         </View>
       ) : null}
-      {tab === 'route' ? <Route /> : tab === 'members' ? <MembersPanel /> : <Prices />}
+      {tab === 'route' ? <Route /> : tab === 'members' ? <MembersPanel /> : tab === 'reviews' ? <ReviewsPanel /> : <Prices />}
     </Screen>
   );
 }
@@ -150,6 +156,8 @@ function RouteItem({ item, busy, onStatus }: { item: DayPlanItem; busy: boolean;
         </Pressable>
       </View>
       <View style={styles.extras}>
+        {item.photos ? <Badge label={`${item.photos} photo${item.photos > 1 ? 's' : ''}`} /> : null}
+        {item.rating ? <Badge label={`${item.rating}★`} tone="success" /> : null}
         <Badge label={item.tariffName} tone="primary" />
         {item.extras.map((e) => (
           <Badge key={e} label={e} />
@@ -164,6 +172,12 @@ function RouteItem({ item, busy, onStatus }: { item: DayPlanItem; busy: boolean;
         ) : (
           <Button title="Undo" variant="ghost" icon="arrow-undo" loading={busy} onPress={() => onStatus('planned')} />
         )}
+        <Button
+          title="Photos & details"
+          variant="ghost"
+          icon="camera-outline"
+          onPress={() => router.push({ pathname: '/wash/[subscriptionId]/[date]', params: { subscriptionId: item.subscriptionId, date: item.date } })}
+        />
       </View>
     </Card>
   );
