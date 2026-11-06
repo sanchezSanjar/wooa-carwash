@@ -3,6 +3,8 @@ import { Test } from '@nestjs/testing';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import { addDays, today, weekday, weekdayOccurrence } from '@app/common/dates';
+import { normalizePhone } from '@app/common/phone';
+import { SmsService } from '@app/common/sms/sms.service';
 
 let mongo: MongoMemoryServer;
 let app: INestApplication;
@@ -26,10 +28,25 @@ const sixTimes = [
 ];
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-const register = async (email: string, apartmentName = 'Raemian Gwanggyo') => {
+let sms: SmsService;
+
+/** The last SMS code sent to a phone (SMS runs in log-only mode in tests). */
+const lastCode = (phone: string) => {
+  const digits = normalizePhone(phone);
+  const msg = [...sms.outbox].reverse().find((m) => m.to === digits);
+  return msg?.text.match(/\d{6}/)?.[0] ?? '';
+};
+
+/** Full SMS sign-up: request code → verify → register. */
+const register = async (name: string, phone: string, apartmentName = 'Raemian Gwanggyo') => {
+  await request(http).post('/auth/otp/request').send({ phone, purpose: 'signup' }).expect(200);
+  await request(http)
+    .post('/auth/otp/verify')
+    .send({ phone, purpose: 'signup', code: lastCode(phone) })
+    .expect(200);
   const res = await request(http)
     .post('/auth/register')
-    .send({ name: email.split('@')[0], email, password: 'password123', phone: '010-1111-2222', apartmentName })
+    .send({ name, phone, password: 'password123', apartmentName })
     .expect(201);
   return res.body.accessToken as string;
 };
@@ -50,7 +67,8 @@ beforeAll(async () => {
   process.env.MONGODB_URI = mongo.getUri('wooa-test');
   process.env.JWT_SECRET = 'test-secret';
   process.env.JWT_EXPIRES_IN = '1h';
-  process.env.ADMIN_EMAILS = 'boss@wooa.test';
+  process.env.ADMIN_PHONES = '010-9999-0000';
+  delete process.env.SOLAPI_API_KEY; // never send real SMS from tests
 
   const { AppModule } = await import('../src/app.module');
   const { configureApp } = await import('../src/setup');
@@ -59,6 +77,7 @@ beforeAll(async () => {
   configureApp(app);
   await app.init();
   http = app.getHttpServer();
+  sms = app.get(SmsService);
 }, 300_000);
 
 afterAll(async () => {
@@ -66,18 +85,79 @@ afterAll(async () => {
   await mongo?.stop();
 });
 
-describe('members', () => {
-  it('requires phone and apartment to register', async () => {
+describe('sms sign-up and login', () => {
+  it('needs a verified phone to register', async () => {
     await request(http)
       .post('/auth/register')
-      .send({ name: 'x', email: 'x@wooa.test', password: 'password123' })
+      .send({ name: 'x', phone: '010-5555-6666', password: 'password123', apartmentName: 'A' })
       .expect(400);
-    kim = await register('kim@wooa.test');
-    lee = await register('lee@wooa.test', 'Hillstate');
-    admin = await register('boss@wooa.test');
+    await request(http).post('/auth/otp/request').send({ phone: '010-5555-6666', purpose: 'signup' }).expect(200);
+    const bad = await request(http)
+      .post('/auth/otp/verify')
+      .send({ phone: '010-5555-6666', purpose: 'signup', code: '000000' === lastCode('010-5555-6666') ? '111111' : '000000' })
+      .expect(400);
+    expect(bad.body.message).toMatch(/attempt/);
+    await request(http).post('/auth/otp/request').send({ phone: '010-5555-6666', purpose: 'signup' }).expect(429); // cooldown
+  });
+
+  it('registers with phone, logs in with phone and password', async () => {
+    kim = await register('Kim Minjun', '010-1111-2222');
+    lee = await register('Lee Jiwoo', '+82 10 3333 4444', 'Hillstate');
+    admin = await register('Boss', '010-9999-0000');
 
     const me = await request(http).get('/auth/me').set(auth(kim)).expect(200);
-    expect(me.body).toMatchObject({ phone: '010-1111-2222', apartmentName: 'Raemian Gwanggyo', role: 'customer' });
+    expect(me.body).toMatchObject({ phone: '01011112222', apartmentName: 'Raemian Gwanggyo', role: 'customer' });
+    expect((await request(http).get('/auth/me').set(auth(admin)).expect(200)).body.role).toBe('admin');
+
+    await request(http).post('/auth/otp/request').send({ phone: '010-1111-2222', purpose: 'signup' }).expect(400); // taken
+    await request(http).post('/auth/login').send({ phone: '01033334444', password: 'password123' }).expect(200);
+    await request(http).post('/auth/login').send({ phone: '010-3333-4444', password: 'nope-nope' }).expect(401);
+  });
+
+  it('resets a forgotten password by SMS and logs out old sessions', async () => {
+    const unknown = await request(http).post('/auth/otp/request').send({ phone: '010-7777-8888', purpose: 'reset' }).expect(200);
+    const known = await request(http).post('/auth/otp/request').send({ phone: '010-3333-4444', purpose: 'reset' }).expect(200);
+    expect(unknown.body.message).toBe(known.body.message); // does not reveal who has an account
+
+    await new Promise((r) => setTimeout(r, 1100)); // new token is issued in a later second than the old one
+    const verified = await request(http)
+      .post('/auth/otp/verify')
+      .send({ phone: '010-3333-4444', purpose: 'reset', code: lastCode('01033334444') })
+      .expect(200);
+    await request(http)
+      .post('/auth/reset-password')
+      .send({ resetToken: verified.body.resetToken, newPassword: 'brand-new-pass' })
+      .expect(200);
+    await request(http)
+      .post('/auth/reset-password')
+      .send({ resetToken: verified.body.resetToken, newPassword: 'again-again' })
+      .expect(400); // one use only
+
+    await request(http).get('/auth/me').set(auth(lee)).expect(401); // old token no longer works
+    const login = await request(http).post('/auth/login').send({ phone: '010-3333-4444', password: 'brand-new-pass' }).expect(200);
+    lee = login.body.accessToken;
+  });
+});
+
+describe('members', () => {
+  it('lets admins create, edit and block members', async () => {
+    await request(http).get('/members').set(auth(kim)).expect(403);
+    const created = await request(http)
+      .post('/members')
+      .set(auth(admin))
+      .send({ name: 'Park Washer', phone: '010-4444-5555', apartmentName: 'Wooa', role: 'washer' })
+      .expect(201);
+    expect(created.body).toMatchObject({ role: 'washer', hasPassword: false });
+    expect(sms.outbox.at(-1)?.text).toMatch(/Forgot password/);
+
+    const list = await request(http).get('/members').query({ search: '4444' }).set(auth(admin)).expect(200);
+    expect(list.body.map((m: { name: string }) => m.name)).toContain('Park Washer');
+
+    await request(http).patch(`/members/${created.body.id}`).set(auth(admin)).send({ status: 'blocked' }).expect(200);
+    const sentBefore = sms.outbox.length;
+    await request(http).post('/auth/otp/request').send({ phone: '010-4444-5555', purpose: 'reset' }).expect(200);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(sms.outbox.length).toBe(sentBefore); // blocked: no code sent
   });
 
   it('updates the profile', async () => {
@@ -190,7 +270,7 @@ describe('subscriptions', () => {
     expect(plan.body[0]).toMatchObject({
       status: 'planned',
       car: { plateNumber: '12가 3456', buildingNumber: '101', parkingFloor: 'B2', arrivesHomeAt: '19:00' },
-      member: { apartmentName: 'Raemian Gwanggyo 2', phone: '010-1111-2222' },
+      member: { apartmentName: 'Raemian Gwanggyo 2', phone: '01011112222' },
     });
     expect(plan.body[0].extras).toHaveLength(2);
 

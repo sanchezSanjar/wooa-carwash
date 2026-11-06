@@ -1,12 +1,16 @@
-export type Role = 'customer' | 'admin';
+export type Role = 'customer' | 'washer' | 'admin';
+export type MemberStatus = 'active' | 'blocked';
 
 export interface User {
   id: string;
   name: string;
-  email: string;
+  /** Digits only, e.g. 01012345678 */
   phone: string;
+  email: string | null;
   apartmentName: string;
   role: Role;
+  status: MemberStatus;
+  hasPassword?: boolean;
 }
 
 export interface AuthResponse {

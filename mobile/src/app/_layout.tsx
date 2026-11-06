@@ -39,6 +39,7 @@ function RootStack() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Wooa Carwash' }} />
         <Stack.Screen name="(auth)/login" options={{ title: 'Log in', presentation: 'modal' }} />
         <Stack.Screen name="(auth)/register" options={{ title: 'Create account', presentation: 'modal' }} />
+        <Stack.Screen name="(auth)/forgot" options={{ title: 'Reset password', presentation: 'modal' }} />
         <Stack.Screen name="car/[id]" options={{ title: 'Car' }} />
         <Stack.Screen name="plan/[carId]" options={{ title: 'Wash plan' }} />
       </Stack>

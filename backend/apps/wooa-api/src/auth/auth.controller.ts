@@ -1,15 +1,35 @@
-import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Ip, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { AuthService } from './auth.service';
+import { LoginDto, RegisterDto, RequestOtpDto, ResetPasswordDto, VerifyOtpDto } from './dto/auth.dto';
+import { JwtAuthGuard } from './jwt.strategy';
+import { OtpService } from './otp.service';
 import { CurrentUser } from './roles';
 import type { AuthUser } from './roles';
-import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
-import { JwtAuthGuard } from './jwt.strategy';
 
+/**
+ * Sign-up:  POST /auth/otp/request {phone, purpose: signup} → SMS → /auth/otp/verify → /auth/register
+ * Reset:    POST /auth/otp/request {phone, purpose: reset} → SMS → /auth/otp/verify (resetToken) → /auth/reset-password
+ */
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly otp: OtpService,
+  ) {}
+
+  @Post('otp/request')
+  @HttpCode(200)
+  async requestOtp(@Body() dto: RequestOtpDto, @Ip() ip: string) {
+    return { message: await this.otp.request(dto.phone, dto.purpose, ip ?? 'unknown') };
+  }
+
+  @Post('otp/verify')
+  @HttpCode(200)
+  verifyOtp(@Body() dto: VerifyOtpDto) {
+    return this.otp.verify(dto.phone, dto.purpose, dto.code);
+  }
 
   @Post('register')
   register(@Body() dto: RegisterDto) {
@@ -20,6 +40,12 @@ export class AuthController {
   @HttpCode(200)
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(200)
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.auth.resetPassword(dto);
   }
 
   @Get('me')

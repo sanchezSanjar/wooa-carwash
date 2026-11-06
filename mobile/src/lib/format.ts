@@ -6,6 +6,15 @@ export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const WEEKDAYS_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+/** "010-1234-5678" from any Korean mobile format. */
+export function formatPhone(phone: string) {
+  let d = phone.replace(/\D/g, '');
+  if (d.startsWith('82')) d = `0${d.slice(2)}`;
+  return d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}` : d;
+}
+
+export const isMobile = (phone: string) => /^01[016789]\d{7,8}$/.test(formatPhone(phone).replace(/\D/g, ''));
+
 export function formatKRW(amount: number) {
   return `₩${Math.round(amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 }

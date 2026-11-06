@@ -8,11 +8,12 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt.strategy';
-import { CurrentUser } from '../auth/roles';
+import { CurrentUser, Role, Roles, RolesGuard } from '../auth/roles';
 import type { AuthUser } from '../auth/roles';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { CarsService } from './cars.service';
@@ -31,6 +32,15 @@ export class CarsController {
   @Get('me')
   mine(@CurrentUser() user: AuthUser) {
     return this.cars.listMine(user);
+  }
+
+  /** Admin: a member's cars. */
+  @Get()
+  @UseGuards(RolesGuard)
+  @Roles(Role.Admin)
+  @ApiQuery({ name: 'ownerId', required: true })
+  forOwner(@Query('ownerId') ownerId: string) {
+    return this.cars.listForOwner(ownerId);
   }
 
   @Post()

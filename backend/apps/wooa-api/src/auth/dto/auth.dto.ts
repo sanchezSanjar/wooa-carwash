@@ -1,18 +1,35 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { OtpPurpose } from '@app/common/schemas/otp.schema';
 
-export const PHONE_RE = /^[0-9+\-\s]{7,20}$/;
+/** Accepts 010-1234-5678, 01012345678 or +82 10 1234 5678; services normalize it. */
+export const PHONE_RE = /^(\+?82[\s-]?|0)1[016789][\s-]?\d{3,4}[\s-]?\d{4}$/;
+const PHONE_MSG = { message: 'phone must be a Korean mobile number like 010-1234-5678' };
 
-export class RegisterDto {
+export class PhoneDto {
+  @ApiProperty({ example: '010-1234-5678' })
+  @Matches(PHONE_RE, PHONE_MSG)
+  phone: string;
+}
+
+export class RequestOtpDto extends PhoneDto {
+  @ApiProperty({ enum: Object.values(OtpPurpose) })
+  @IsIn(Object.values(OtpPurpose))
+  purpose: OtpPurpose;
+}
+
+export class VerifyOtpDto extends RequestOtpDto {
+  @ApiProperty({ example: '123456' })
+  @Matches(/^\d{6}$/, { message: 'code must be 6 digits' })
+  code: string;
+}
+
+export class RegisterDto extends PhoneDto {
   @ApiProperty({ example: 'Kim Minjun' })
   @IsString()
   @MinLength(1)
   @MaxLength(80)
   name: string;
-
-  @ApiProperty({ example: 'minjun@example.com' })
-  @IsEmail()
-  email: string;
 
   @ApiProperty({ minLength: 8, example: 'secret123' })
   @IsString()
@@ -20,24 +37,34 @@ export class RegisterDto {
   @MaxLength(128)
   password: string;
 
-  @ApiProperty({ example: '010-1234-5678' })
-  @Matches(PHONE_RE, { message: 'phone must be a valid phone number' })
-  phone: string;
-
   @ApiProperty({ example: 'Raemian Gwanggyo', description: 'Apartment complex name' })
   @IsString()
   @MinLength(1)
   @MaxLength(100)
   apartmentName: string;
+
+  @ApiPropertyOptional({ example: 'minjun@example.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 }
 
-export class LoginDto {
-  @ApiProperty({ example: 'minjun@example.com' })
-  @IsEmail()
-  email: string;
-
+export class LoginDto extends PhoneDto {
   @ApiProperty({ example: 'secret123' })
   @IsString()
   @MinLength(1)
   password: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(20)
+  resetToken: string;
+
+  @ApiProperty({ minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  newPassword: string;
 }

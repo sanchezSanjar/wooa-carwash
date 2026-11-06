@@ -6,18 +6,18 @@ import type { AuthResponse, User } from './types';
 
 export interface RegisterInput {
   name: string;
-  email: string;
-  password: string;
   phone: string;
+  password: string;
   apartmentName: string;
+  email?: string;
 }
 
 interface AuthState {
   user: User | null;
   ready: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (phone: string, password: string) => Promise<void>;
   register: (data: RegisterInput) => Promise<void>;
-  updateProfile: (data: Partial<Pick<User, 'name' | 'phone' | 'apartmentName'>>) => Promise<void>;
+  updateProfile: (data: { name?: string; apartmentName?: string; email?: string }) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       ready,
-      login: async (email, password) => accept(await api.login({ email, password })),
+      login: async (phone, password) => accept(await api.login({ phone, password })),
       register: async (data) => accept(await api.register(data)),
       updateProfile: async (data) => setUser(await api.updateProfile(data)),
       logout,

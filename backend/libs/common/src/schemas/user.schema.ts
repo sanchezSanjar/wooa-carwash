@@ -1,27 +1,37 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import { Role } from '../enums';
+import { MemberStatus, Role } from '../enums';
 
 @Schema({ collection: 'members', timestamps: true })
 export class User {
   @Prop({ required: true, trim: true })
   name: string;
 
-  @Prop({ required: true, unique: true, lowercase: true, trim: true })
-  email: string;
-
-  @Prop({ required: true, trim: true })
+  /** Login name: mobile number, digits only (01012345678). Verified by SMS at sign-up. */
+  @Prop({ required: true, unique: true, trim: true })
   phone: string;
+
+  /** Optional contact email. */
+  @Prop({ lowercase: true, trim: true, unique: true, sparse: true })
+  email?: string;
 
   /** Apartment complex the member lives in, e.g. "Raemian Gwanggyo". */
   @Prop({ required: true, trim: true, index: true })
   apartmentName: string;
 
-  @Prop({ required: true, select: false })
-  passwordHash: string;
+  /** Empty for accounts an admin created: the member sets it with "forgot password". */
+  @Prop({ select: false })
+  passwordHash?: string;
 
   @Prop({ type: String, enum: Object.values(Role), default: Role.Customer })
   role: Role;
+
+  @Prop({ type: String, enum: Object.values(MemberStatus), default: MemberStatus.Active })
+  status: MemberStatus;
+
+  /** Tokens issued before this moment stop working (password reset, block). */
+  @Prop()
+  passwordChangedAt?: Date;
 }
 
 export type UserDocument = HydratedDocument<User>;
