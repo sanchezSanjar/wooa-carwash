@@ -162,6 +162,15 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
           </>
         ) : null}
       </View>
+      {sheet?.weather ? (
+        <View style={[styles.weather, { backgroundColor: sheet.weather.wet ? theme.warningSoft : theme.surface }]}>
+          <Ionicons name={sheet.weather.wet ? 'rainy-outline' : 'partly-sunny-outline'} size={18} color={sheet.weather.wet ? theme.warning : theme.text} />
+          <AppText variant="label" color={sheet.weather.wet ? theme.warning : theme.text} style={{ flex: 1 }}>
+            {sheet.weather.summary}
+            {sheet.weather.wet ? ' · members with a wash get a weather notice the evening before' : ''}
+          </AppText>
+        </View>
+      ) : null}
       {dirty ? <Banner tone="success" message="You have unsaved changes on this day sheet." /> : null}
       {error ? <Banner message={error} /> : null}
       {rows.length === 0 ? <EmptyState icon="sunny-outline" title="No cars on this day" message={isAdmin ? 'Use “Add car” to bring in a car from another day.' : undefined} /> : null}
@@ -486,6 +495,7 @@ function PickerItem({ label, onPress }: { label: string; onPress: () => void }) 
 
 const styles = StyleSheet.create({
   toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.sm },
+  weather: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderRadius: Radius.md },
   table: { borderWidth: StyleSheet.hairlineWidth, borderRadius: Radius.md, overflow: 'hidden' },
   tr: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, minHeight: 56 },
   th: { minHeight: 36 },

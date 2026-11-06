@@ -73,7 +73,7 @@ export interface Subscription {
 
 export interface AppNotification {
   id: string;
-  type: 'wash_reminder' | 'wash_done';
+  type: 'wash_reminder' | 'wash_done' | 'invoice_issued' | 'payment_due' | 'payment_overdue' | 'weather_alert';
   title: string;
   body: string;
   date: string;
@@ -155,6 +155,8 @@ export interface DaySheetRow {
 export interface DaySheet {
   date: string;
   saved: boolean;
+  /** Forecast from the batch server (KMA), when available. */
+  weather: { summary: string; pop: number; wet: boolean } | null;
   updatedAt: string | null;
   rows: DaySheetRow[];
 }
