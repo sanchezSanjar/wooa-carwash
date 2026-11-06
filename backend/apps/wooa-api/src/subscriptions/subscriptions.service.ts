@@ -16,6 +16,7 @@ import { UserDocument } from '@app/common/schemas/user.schema';
 import { NotificationText } from '@app/common/notify';
 import { Notification, NotificationType } from '@app/common/schemas/notification.schema';
 import {
+  ChangeTariffDto,
   CreateSubscriptionDto,
   SetWashStatusDto,
   UpdateSubscriptionDto,
@@ -27,6 +28,7 @@ import {
   SubscriptionStatus,
   Wash,
   WashDocument,
+  WashStatus,
 } from '@app/common/schemas/subscription.schema';
 
 const UPCOMING_COUNT = 6;
@@ -89,7 +91,7 @@ export class SubscriptionsService {
       .populate('car')
       .exec();
     const history = await this.washes
-      .find({ subscription: { $in: subs.map((s) => s._id) } })
+      .find({ subscription: { $in: subs.map((s) => s._id) }, status: { $ne: WashStatus.Planned } })
       .sort({ date: -1 })
       .limit(50)
       .exec();
@@ -124,6 +126,24 @@ export class SubscriptionsService {
     if (dto.extraIds) {
       sub.extras = SubscriptionsService.snapshotExtras(await this.catalog.getActiveExtras(dto.extraIds));
     }
+    await sub.save();
+    const car = await this.carModel.findById(sub.car).exec();
+    return this.toPublic(sub, { car: car ?? undefined, now });
+  }
+
+  /** Switch to another tariff (members for their own cars, admins for any). New price applies from now on. */
+  async changeTariff(user: AuthUser, id: string, dto: ChangeTariffDto, now = new Date()) {
+    const sub = await this.findAccessible(user, id);
+    if (sub.status !== SubscriptionStatus.Active) {
+      throw new BadRequestException('Only active subscriptions can be changed');
+    }
+    const tariff = await this.catalog.getTariff(dto.tariffId);
+    if (!tariff.active && user.role !== Role.Admin) throw new BadRequestException('This tariff is not available');
+    sub.schedule = this.checkedSchedule(dto.schedule, tariff.washesPerMonth);
+    sub.tariff = tariff._id;
+    sub.tariffName = tariff.name;
+    sub.washesPerMonth = tariff.washesPerMonth;
+    sub.tariffPrice = tariff.price;
     await sub.save();
     const car = await this.carModel.findById(sub.car).exec();
     return this.toPublic(sub, { car: car ?? undefined, now });
@@ -167,6 +187,8 @@ export class SubscriptionsService {
         date,
         status: outcome?.status ?? 'planned',
         note: outcome?.note ?? '',
+        photos: outcome?.photos.length ?? 0,
+        rating: outcome?.review?.rating ?? null,
         tariffName: s.tariffName,
         extras: s.extras.map((e) => e.name),
         car: CarsService.toPublic(car),
@@ -192,7 +214,12 @@ export class SubscriptionsService {
     }
     const doneNotice = { subscription: sub._id, date: dto.date, type: NotificationType.WashDone };
     if (dto.status === 'planned') {
-      await this.washes.deleteOne({ subscription: sub._id, date: dto.date });
+      // undo: keep the record if it has photos, otherwise remove it
+      await this.washes.deleteOne({ subscription: sub._id, date: dto.date, 'photos.0': { $exists: false } });
+      await this.washes.updateOne(
+        { subscription: sub._id, date: dto.date },
+        { $set: { status: WashStatus.Planned, note: '' }, $unset: { washedOn: '' } },
+      );
       await this.notifications.deleteOne({ ...doneNotice, read: false }); // undo: take back an unread "washed"
       return { subscriptionId: sub.id, date: dto.date, status: 'planned', note: '' };
     }
@@ -282,7 +309,13 @@ export class SubscriptionsService {
             .filter((d) => !(opts.history ?? []).some((w) => w.date === d))
             .slice(0, UPCOMING_COUNT)
         : [],
-      history: (opts.history ?? []).map((w) => ({ date: w.date, status: w.status, note: w.note })),
+      history: (opts.history ?? []).map((w) => ({
+        date: w.date,
+        status: w.status,
+        note: w.note,
+        photos: w.photos.length,
+        rating: w.review?.rating ?? null,
+      })),
     };
   }
 }

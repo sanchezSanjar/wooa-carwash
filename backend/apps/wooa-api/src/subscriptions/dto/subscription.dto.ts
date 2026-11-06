@@ -62,6 +62,20 @@ export class CreateSubscriptionDto {
   extraIds?: string[];
 }
 
+export class ChangeTariffDto {
+  @ApiProperty()
+  @IsMongoId()
+  tariffId: string;
+
+  @ApiProperty({ type: [ScheduleDayDto], description: 'Wash days that fit the new tariff' })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(7)
+  @ValidateNested({ each: true })
+  @Type(() => ScheduleDayDto)
+  schedule: ScheduleDayDto[];
+}
+
 export class UpdateSubscriptionDto {
   @ApiPropertyOptional({ type: [ScheduleDayDto] })
   @IsOptional()

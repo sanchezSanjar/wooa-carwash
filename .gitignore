@@ -36,3 +36,6 @@ Thumbs.db
 **/ios/Pods/
 **/ios/.symlinks/
 **/ios/Flutter/Generated.xcconfig
+
+# photos uploaded to the API (server disk)
+uploads/

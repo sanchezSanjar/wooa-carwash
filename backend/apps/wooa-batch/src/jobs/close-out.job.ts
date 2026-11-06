@@ -28,6 +28,15 @@ export class CloseOutJob {
     let closed = 0;
     for (const sub of subs) {
       if (!isWashDay(sub.schedule, date)) continue;
+      // a record that only has photos (status planned) is closed too; done/skipped ones are left alone
+      const marked = await this.washes.updateOne(
+        { subscription: sub._id, date, status: WashStatus.Planned },
+        { $set: { status: WashStatus.Skipped, note: CLOSE_OUT_NOTE } },
+      );
+      if (marked.modifiedCount) {
+        closed++;
+        continue;
+      }
       const res = await this.washes.updateOne(
         { subscription: sub._id, date },
         { $setOnInsert: { car: sub.car, status: WashStatus.Skipped, note: CLOSE_OUT_NOTE } },

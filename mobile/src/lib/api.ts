@@ -6,14 +6,22 @@ import type {
   Car,
   CarInput,
   DayPlanItem,
+  PhotoKind,
+  ReviewItem,
   Role,
   Extra,
   ScheduleDay,
   Subscription,
   Tariff,
   User,
+  WashDetail,
+  WashPhoto,
+  WashReview,
   WashStatus,
 } from './types';
+
+/** Full URL for a file the API serves, e.g. /uploads/... */
+export const fileUrl = (path: string) => (path.startsWith('http') ? path : `${API_URL}${path}`);
 
 const fallbackUrl = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || fallbackUrl).replace(/\/+$/, '');
@@ -39,16 +47,17 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
       method,
       headers: {
         Accept: 'application/json',
-        ...(body !== undefined && { 'Content-Type': 'application/json' }),
+        ...(body !== undefined && !isForm && { 'Content-Type': 'application/json' }),
         ...(authToken && { Authorization: `Bearer ${authToken}` }),
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
     });
   } catch {
     throw new ApiError('Cannot reach the server. Check your connection and try again.', 0);
@@ -130,6 +139,29 @@ export const api = {
 
   myNotifications: () => request<{ unread: number; items: AppNotification[] }>('GET', '/notifications/me'),
   markNotificationsRead: () => request<{ updated: number }>('PATCH', '/notifications/read-all'),
+
+  washDetail: (subscriptionId: string, date: string) =>
+    request<WashDetail>('GET', `/washes/detail?subscriptionId=${subscriptionId}&date=${date}`),
+  uploadPhoto: async (p: { subscriptionId: string; date: string; kind: PhotoKind; note?: string; uri: string; mimeType?: string }) => {
+    const form = new FormData();
+    form.append('subscriptionId', p.subscriptionId);
+    form.append('date', p.date);
+    form.append('kind', p.kind);
+    if (p.note) form.append('note', p.note);
+    if (Platform.OS === 'web') {
+      form.append('file', await (await fetch(p.uri)).blob(), 'photo.jpg');
+    } else {
+      // React Native's FormData takes a file descriptor object
+      form.append('file', { uri: p.uri, name: 'photo.jpg', type: p.mimeType ?? 'image/jpeg' } as unknown as Blob);
+    }
+    return request<WashPhoto>('POST', '/washes/photos', form);
+  },
+  deletePhoto: (id: string) => request<void>('DELETE', `/washes/photos/${id}`),
+  reviewWash: (body: { subscriptionId: string; date: string; rating: number; comment?: string }) =>
+    request<WashReview>('PUT', '/washes/review', body),
+  reviews: () => request<ReviewItem[]>('GET', '/washes/reviews'),
+  changeTariff: (id: string, body: { tariffId: string; schedule: ScheduleDay[] }) =>
+    request<Subscription>('PATCH', `/subscriptions/${id}/tariff`, body),
 
   dayPlan: (date: string) => request<DayPlanItem[]>('GET', `/washes?date=${encodeURIComponent(date)}`),
   setWashStatus: (body: { subscriptionId: string; date: string; status: WashStatus; note?: string }) =>

@@ -68,7 +68,7 @@ export interface Subscription {
   startDate: string;
   status: 'active' | 'cancelled';
   upcoming: string[];
-  history: { date: string; status: WashStatus; note: string }[];
+  history: { date: string; status: WashStatus; note: string; photos: number; rating: number | null }[];
 }
 
 export interface AppNotification {
@@ -86,8 +86,50 @@ export interface DayPlanItem {
   date: string;
   status: WashStatus;
   note: string;
+  photos: number;
+  rating: number | null;
   tariffName: string;
   extras: string[];
   car: Car;
   member: { id: string; name: string; phone: string; email: string; apartmentName: string };
+}
+
+export type PhotoKind = 'before' | 'after';
+
+export interface WashPhoto {
+  id: string;
+  kind: PhotoKind;
+  /** Relative to the API, e.g. /uploads/washes/... */
+  url: string;
+  note: string;
+  createdAt: string | null;
+}
+
+export interface WashReview {
+  rating: number;
+  comment: string;
+  createdAt: string | null;
+}
+
+export interface WashDetail {
+  subscriptionId: string;
+  date: string;
+  status: WashStatus;
+  note: string;
+  washedOn: string | null;
+  tariffName: string;
+  extras: string[];
+  car: Car | null;
+  photos: WashPhoto[];
+  review: WashReview | null;
+  canReview: boolean;
+}
+
+export interface ReviewItem {
+  subscriptionId: string;
+  date: string;
+  plateNumber: string;
+  memberName: string;
+  apartmentName: string;
+  review: WashReview | null;
 }

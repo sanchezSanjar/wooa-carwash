@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CarCard } from '@/components/car-card';
+import { Stars } from '@/components/stars';
 import {
   AppText,
   Badge,
@@ -93,10 +94,12 @@ function PlanEditor({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // An existing plan keeps its tariff (prices are fixed at subscription time).
-  const tariff: Pick<Tariff, 'id' | 'name' | 'washesPerMonth' | 'price'> | undefined = sub
-    ? { id: sub.tariffId, name: sub.tariffName, washesPerMonth: sub.washesPerMonth, price: sub.tariffPrice }
-    : tariffs.find((t) => t.id === tariffId);
+  // An existing plan keeps the price it started with until the member switches to another tariff.
+  const tariffChanged = !!sub && tariffId !== sub.tariffId;
+  const tariff: Pick<Tariff, 'id' | 'name' | 'washesPerMonth' | 'price'> | undefined =
+    sub && !tariffChanged
+      ? { id: sub.tariffId, name: sub.tariffName, washesPerMonth: sub.washesPerMonth, price: sub.tariffPrice }
+      : tariffs.find((t) => t.id === tariffId);
   const perMonth = tariff?.washesPerMonth ?? 0;
   const schedule = picksToSchedule(picks);
   const problem = tariff ? picksProblem(picks, perMonth) : 'Choose a plan';
@@ -108,8 +111,10 @@ function PlanEditor({
   const monthly = (tariff?.price ?? 0) + extrasPerWash * perMonth;
 
   const chooseTariff = (t: Tariff) => {
+    if (t.id === tariffId) return;
     setTariffId(t.id);
-    setPicks(emptyPicks());
+    // back to the current plan: restore its days; another plan: pick new days
+    setPicks(sub && t.id === sub.tariffId ? scheduleToPicks(sub.schedule) : emptyPicks());
   };
 
   const toggleExtra = (id: string) =>
@@ -122,6 +127,9 @@ function PlanEditor({
     try {
       if (isNew) {
         await api.subscribe({ carId: car.id, tariffId: tariff.id, startDate, schedule, extraIds });
+      } else if (tariffChanged) {
+        await api.changeTariff(sub.id, { tariffId: tariff.id, schedule });
+        await api.updateSubscription(sub.id, { extraIds });
       } else {
         await api.updateSubscription(sub.id, { schedule, extraIds });
       }
@@ -153,10 +161,15 @@ function PlanEditor({
       <Stack.Screen options={{ title: isNew ? 'Choose a wash plan' : 'Manage wash plan' }} />
       <CarCard car={car}>{sub ? <Badge label="Active" tone="success" /> : null}</CarCard>
 
-      <SectionTitle hint={isNew ? 'Monthly price per car.' : 'To switch plans, cancel this one and choose a new plan.'}>
+      <SectionTitle hint={isNew ? 'Monthly price per car.' : 'Switch to another plan any time; the new price applies from the next bill.'}>
         1. Plan
       </SectionTitle>
-      {isNew ? (
+      {sub ? (
+        <AppText variant="caption">
+          Current: {sub.tariffName} · {sub.washesPerMonth} washes a month · since {formatDay(sub.startDate)}
+        </AppText>
+      ) : null}
+      {tariffs.length ? (
         <View style={styles.tariffs}>
           {tariffs.map((t) => {
             const selected = t.id === tariffId;
@@ -179,14 +192,7 @@ function PlanEditor({
             );
           })}
         </View>
-      ) : (
-        <Card>
-          <AppText variant="heading">
-            {tariff?.name} · {perMonth} washes per month
-          </AppText>
-          <AppText variant="caption">Started {formatDay(sub.startDate)}</AppText>
-        </Card>
-      )}
+      ) : null}
 
       {tariff ? (
         <>
@@ -245,7 +251,7 @@ function PlanEditor({
 
       {error ? <Banner message={error} /> : null}
       {problem ? <AppText variant="caption" style={{ textAlign: 'center' }}>{problem}</AppText> : null}
-      <Button title={isNew ? 'Start wash plan' : 'Save changes'} disabled={!!problem} loading={busy} onPress={submit} />
+      <Button title={isNew ? 'Start wash plan' : tariffChanged ? `Switch to ${tariff?.name}` : 'Save changes'} disabled={!!problem} loading={busy} onPress={submit} />
       {sub ? <Button title="Cancel wash plan" variant="danger" disabled={busy} onPress={cancelPlan} /> : null}
 
       {sub && sub.history.length > 0 ? (
@@ -253,10 +259,22 @@ function PlanEditor({
           <SectionTitle>Recent washes</SectionTitle>
           <Card style={{ gap: Spacing.sm }}>
             {sub.history.map((h) => (
-              <View key={h.date} style={styles.totalRow}>
-                <AppText variant="label">{formatDay(h.date)}</AppText>
+              <Pressable
+                key={h.date}
+                style={styles.totalRow}
+                accessibilityRole="button"
+                onPress={() => router.push({ pathname: '/wash/[subscriptionId]/[date]', params: { subscriptionId: sub.id, date: h.date } })}>
+                <View style={{ flex: 1 }}>
+                  <AppText variant="label">{formatDay(h.date)}</AppText>
+                  <AppText variant="caption">
+                    {h.photos ? `${h.photos} photo${h.photos > 1 ? 's' : ''}` : 'No photos'}
+                    {h.status === 'done' && !h.rating ? ' · tap to rate' : ''}
+                  </AppText>
+                </View>
+                {h.rating ? <Stars value={h.rating} size={14} /> : null}
                 <Badge label={STATUS_LABEL[h.status]} tone={h.status === 'done' ? 'success' : 'neutral'} />
-              </View>
+                <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+              </Pressable>
             ))}
           </Card>
         </>
