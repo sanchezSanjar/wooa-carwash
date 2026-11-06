@@ -65,3 +65,18 @@ export function scheduleSummary(schedule: ScheduleDay[]) {
 }
 
 export const STATUS_LABEL = { planned: 'Planned', done: 'Washed', skipped: 'Skipped' } as const;
+
+const MONTH_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** "November 2026" for YYYY-MM. */
+export function formatMonth(month: string) {
+  return `${MONTH_LONG[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
+}
+
+/** YYYY-MM shifted by n months. */
+export function shiftMonth(month: string, n: number) {
+  const d = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1 + n, 1));
+  return d.toISOString().slice(0, 7);
+}
+
+export const PAYMENT_METHOD_LABEL = { bank_transfer: 'Bank transfer', cash: 'Cash', card: 'Card', other: 'Other' } as const;

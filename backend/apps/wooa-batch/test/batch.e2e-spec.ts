@@ -6,6 +6,9 @@ import type { INestApplication } from '@nestjs/common';
 
 import { Car } from '@app/common/schemas/car.schema';
 import { DaySheet } from '@app/common/schemas/daysheet.schema';
+import { Invoice } from '@app/common/schemas/invoice.schema';
+import { SmsService } from '@app/common/sms/sms.service';
+import { BillingJob } from '../src/jobs/billing.job';
 import { Notification } from '@app/common/schemas/notification.schema';
 import { Subscription, Wash } from '@app/common/schemas/subscription.schema';
 import { User } from '@app/common/schemas/user.schema';
@@ -137,5 +140,47 @@ describe('jobs follow the day sheets', () => {
     // close-out on the new day marks it skipped with the day it was due to be washed
     expect(await closeOut.run(new Date('2026-11-17T14:30:00Z'))).toBe(1);
     expect(await washes.findOne({ subscription: due, date: '2026-11-16' }).lean()).toMatchObject({ status: 'skipped', washedOn: '2026-11-17' });
+  });
+});
+
+describe('billing job', () => {
+  const at = (date: string, hhmm = '09:00') => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return new Date(Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10), h - 9, m)); // Korea time
+  };
+
+  it('issues one bill per active plan per month, prorating a late start', async () => {
+    const invoices = app.get<Model<Invoice>>(getModelToken(Invoice.name));
+    const sms = app.get(SmsService);
+    const job = app.get(BillingJob);
+    const smsBefore = sms.outbox.length;
+
+    expect(await job.issue(at('2026-11-01'))).toBe(4); // the cancelled plan gets no bill
+    expect(await job.issue(at('2026-11-02'))).toBe(0); // safe to run every day
+
+    const bills = await invoices.find({ month: '2026-11' }).sort({ plateNumber: 1 }).lean();
+    expect(bills.map((b) => b.plateNumber)).toEqual(['11가 1111', '22가 2222', '33가 3333', '55가 5555']);
+    expect(bills[0]).toMatchObject({ amount: 50000, dueDate: '2026-11-10', status: 'unpaid' }); // 40,000 + 2 × 5,000
+    // started Nov 5: only Mon Nov 16 is left of its two November washes
+    expect(bills[3]).toMatchObject({ amount: 25000, lines: [{ label: 'Basic plan (1 of 2 washes)', amount: 20000 }, { amount: 5000 }] });
+    expect(sms.outbox.length - smsBefore).toBe(4);
+    expect(sms.outbox.at(-1)?.text).toMatch(/^\[Wooa Carwash\] Your November wash plan for .+ due Tue, Nov 10/);
+  });
+
+  it('reminds before the due date once, and weekly while overdue', async () => {
+    const invoices = app.get<Model<Invoice>>(getModelToken(Invoice.name));
+    const job = app.get(BillingJob);
+    expect(await job.remindDueSoon(at('2026-11-07', '10:00'))).toBe(4);
+    expect(await job.remindDueSoon(at('2026-11-08', '10:00'))).toBe(0);
+
+    await invoices.updateOne({ plateNumber: '22가 2222' }, { status: 'paid', paidAt: new Date() });
+    expect(await job.remindOverdue(at('2026-11-10', '10:30'))).toBe(0); // due today: not overdue yet
+    expect(await job.remindOverdue(at('2026-11-11', '10:30'))).toBe(3);
+    expect(await job.remindOverdue(at('2026-11-14', '10:30'))).toBe(0); // within a week
+    expect(await job.remindOverdue(at('2026-11-18', '10:30'))).toBe(3);
+
+    const overdue = await notifications.find({ type: 'payment_overdue' }).lean();
+    expect(overdue).toHaveLength(6);
+    expect(overdue[0].body).toMatch(/Ignore this if you already paid/);
   });
 });

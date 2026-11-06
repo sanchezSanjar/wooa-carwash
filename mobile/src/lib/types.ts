@@ -168,3 +168,30 @@ export interface StaffMember {
   name: string;
   role: Role;
 }
+
+export type InvoiceStatus = 'unpaid' | 'paid' | 'void';
+export type PaymentMethod = 'bank_transfer' | 'cash' | 'card' | 'other';
+
+export interface Invoice {
+  id: string;
+  subscriptionId: string;
+  plateNumber: string;
+  /** YYYY-MM */
+  month: string;
+  lines: { label: string; amount: number }[];
+  amount: number;
+  issueDate: string;
+  dueDate: string;
+  status: InvoiceStatus;
+  overdue: boolean;
+  paidAt: string | null;
+  method: PaymentMethod | null;
+  note: string;
+  member?: { id: string; name: string; phone: string; apartmentName: string };
+}
+
+export interface InvoiceMonth {
+  month: string;
+  totals: { billed: number; paid: number; unpaid: number; count: number; unpaidCount: number };
+  invoices: Invoice[];
+}

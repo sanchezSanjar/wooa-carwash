@@ -6,6 +6,10 @@ import type {
   Car,
   CarInput,
   DayPlanItem,
+  Invoice,
+  InvoiceMonth,
+  InvoiceStatus,
+  PaymentMethod,
   DaySheet,
   SheetCandidate,
   StaffMember,
@@ -173,6 +177,13 @@ export const api = {
     request<{ from: DaySheet; to: DaySheet }>('POST', `/daysheets/${date}/move`, body),
   sheetCandidates: (date: string) => request<SheetCandidate[]>('GET', `/daysheets/${date}/candidates`),
   sheetStaff: () => request<StaffMember[]>('GET', '/daysheets/staff'),
+
+  myInvoices: () => request<{ bankAccount: string | null; invoices: Invoice[] }>('GET', '/invoices/me'),
+  invoices: (month: string, status?: InvoiceStatus) =>
+    request<InvoiceMonth>('GET', `/invoices?month=${month}${status ? `&status=${status}` : ''}`),
+  overdueInvoices: () => request<Invoice[]>('GET', '/invoices/overdue'),
+  setInvoiceStatus: (id: string, body: { status: InvoiceStatus; method?: PaymentMethod; note?: string }) =>
+    request<Invoice>('PATCH', `/invoices/${id}`, body),
 
   dayPlan: (date: string) => request<DayPlanItem[]>('GET', `/washes?date=${encodeURIComponent(date)}`),
   setWashStatus: (body: { subscriptionId: string; date: string; status: WashStatus; note?: string; washedOn?: string }) =>

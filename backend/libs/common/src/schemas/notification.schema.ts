@@ -6,6 +6,14 @@ export const NotificationType = {
   WashReminder: 'wash_reminder',
   /** Sent by the API when the shop marks a wash done. */
   WashDone: 'wash_done',
+  /** Batch: a monthly bill was issued. */
+  InvoiceIssued: 'invoice_issued',
+  /** Batch: a bill is due in a few days. */
+  PaymentDue: 'payment_due',
+  /** Batch: a bill is past its due date. */
+  PaymentOverdue: 'payment_overdue',
+  /** Batch: rain is forecast on a wash day. */
+  WeatherAlert: 'weather_alert',
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 
@@ -27,7 +35,7 @@ export class Notification {
   @Prop({ type: Types.ObjectId, ref: 'Subscription', required: true })
   subscription: Types.ObjectId;
 
-  /** The wash date this is about (YYYY-MM-DD). */
+  /** The day this is about (YYYY-MM-DD): the wash date, or for bills the due/reminder date. */
   @Prop({ required: true })
   date: string;
 

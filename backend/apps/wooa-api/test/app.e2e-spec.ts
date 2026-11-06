@@ -9,6 +9,9 @@ import { join } from 'path';
 import { addDays, today, weekday, weekdayOccurrence } from '@app/common/dates';
 import { normalizePhone } from '@app/common/phone';
 import { SmsService } from '@app/common/sms/sms.service';
+import { Invoice } from '@app/common/schemas/invoice.schema';
+import { getModelToken } from '@nestjs/mongoose';
+import { Types, type Model } from 'mongoose';
 
 let mongo: MongoMemoryServer;
 let app: INestApplication;
@@ -488,5 +491,42 @@ describe('day sheets', () => {
       .expect(200);
     const detail = await request(http).get('/washes/detail').query({ subscriptionId: leeSub, date: day }).set(auth(lee)).expect(200);
     expect(detail.body).toMatchObject({ status: 'done', washedOn: next });
+  });
+});
+
+describe('bills', () => {
+  it('shows members their bills and lets admins mark them paid', async () => {
+    const invoices = app.get<Model<Invoice>>(getModelToken(Invoice.name));
+    const kimId = (await request(http).get('/auth/me').set(auth(kim)).expect(200)).body.id;
+    const month = today().slice(0, 7);
+    const bill = await invoices.create({
+      member: new Types.ObjectId(kimId),
+      subscription: new Types.ObjectId(subId),
+      plateNumber: '12가 3456',
+      month,
+      lines: [{ label: 'Basic plan', amount: 40000 }],
+      amount: 40000,
+      issueDate: `${month}-01`,
+      dueDate: '2000-01-10', // long overdue
+    });
+
+    const mine = await request(http).get('/invoices/me').set(auth(kim)).expect(200);
+    expect(mine.body.invoices).toHaveLength(1);
+    expect(mine.body.invoices[0]).toMatchObject({ amount: 40000, status: 'unpaid', overdue: true });
+    expect((await request(http).get('/invoices/me').set(auth(lee)).expect(200)).body.invoices).toHaveLength(0);
+
+    await request(http).get('/invoices').set(auth(kim)).expect(403);
+    const list = await request(http).get('/invoices').query({ month }).set(auth(admin)).expect(200);
+    expect(list.body.totals).toMatchObject({ billed: 40000, unpaid: 40000, paid: 0, unpaidCount: 1 });
+    expect(list.body.invoices[0].member).toMatchObject({ name: 'Kim Minjun' });
+    expect((await request(http).get('/invoices/overdue').set(auth(admin)).expect(200)).body).toHaveLength(1);
+
+    const paid = await request(http)
+      .patch(`/invoices/${bill.id}`)
+      .set(auth(admin))
+      .send({ status: 'paid', method: 'bank_transfer', note: 'Shinhan transfer' })
+      .expect(200);
+    expect(paid.body).toMatchObject({ status: 'paid', method: 'bank_transfer', overdue: false });
+    expect((await request(http).get('/invoices').query({ month }).set(auth(admin)).expect(200)).body.totals).toMatchObject({ paid: 40000, unpaid: 0 });
   });
 });

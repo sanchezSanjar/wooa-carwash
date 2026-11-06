@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { DaySheetPanel } from '@/components/admin/day-sheet';
 import { MembersPanel } from '@/components/admin/members-panel';
+import { PaymentsPanel } from '@/components/admin/payments-panel';
 import { ReviewsPanel } from '@/components/admin/reviews-panel';
 import { AppText, Banner, Button, Card, Loading, Screen } from '@/components/ui';
 import { Fonts, Radius, Spacing, useTheme } from '@/constants/theme';
@@ -13,9 +14,10 @@ import { useAuth } from '@/lib/auth';
 import { formatKRW } from '@/lib/format';
 import type { Extra, Tariff } from '@/lib/types';
 
-type Tab = 'route' | 'members' | 'reviews' | 'prices';
+type Tab = 'route' | 'payments' | 'members' | 'reviews' | 'prices';
 const TAB_LABEL: Record<Tab, string> = {
   route: 'Day sheet',
+  payments: 'Payments',
   members: 'Members',
   reviews: 'Reviews',
   prices: 'Plans & prices',
@@ -31,7 +33,7 @@ function Dashboard({ isAdmin }: { isAdmin: boolean }) {
   const theme = useTheme();
   const [tab, setTab] = useState<Tab>('route');
   // washers only see the route; admins see everything
-  const tabs: Tab[] = isAdmin ? ['route', 'members', 'reviews', 'prices'] : ['route'];
+  const tabs: Tab[] = isAdmin ? ['route', 'payments', 'members', 'reviews', 'prices'] : ['route'];
   return (
     <Screen>
       <AppText variant="title">Manage</AppText>
@@ -46,7 +48,7 @@ function Dashboard({ isAdmin }: { isAdmin: boolean }) {
           ))}
         </View>
       ) : null}
-      {tab === 'route' ? <DaySheetPanel isAdmin={isAdmin} /> : tab === 'members' ? <MembersPanel /> : tab === 'reviews' ? <ReviewsPanel /> : <Prices />}
+      {tab === 'route' ? <DaySheetPanel isAdmin={isAdmin} /> : tab === 'payments' ? <PaymentsPanel /> : tab === 'members' ? <MembersPanel /> : tab === 'reviews' ? <ReviewsPanel /> : <Prices />}
     </Screen>
   );
 }

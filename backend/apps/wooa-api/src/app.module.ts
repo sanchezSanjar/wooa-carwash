@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { DaySheetsModule } from './daysheets/daysheets.module';
+import { InvoicesModule } from './invoices/invoices.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { UsersModule } from './users/users.module';
 import { WashesModule } from './washes/washes.module';
@@ -21,6 +22,7 @@ import { WashesModule } from './washes/washes.module';
     SubscriptionsModule,
     WashesModule,
     DaySheetsModule,
+    InvoicesModule,
   ],
   controllers: [AppController],
 })
