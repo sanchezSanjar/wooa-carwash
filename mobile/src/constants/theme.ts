@@ -1,65 +1,67 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
 import '@/global.css';
 
 import { Platform } from 'react-native';
 
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#0B1B2B',
+    textSecondary: '#5B6B7C',
+    background: '#F4F7FB',
+    card: '#FFFFFF',
+    border: '#DCE3EC',
+    primary: '#1565E8',
+    primaryText: '#FFFFFF',
+    primarySoft: '#E3EDFD',
+    danger: '#D93636',
+    dangerSoft: '#FDECEC',
+    success: '#16834A',
+    successSoft: '#E3F6EB',
+    warning: '#A86400',
+    warningSoft: '#FFF3DC',
+    muted: '#EEF2F7',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#EAF1F8',
+    textSecondary: '#9AABBD',
+    background: '#07111C',
+    card: '#0F1D2C',
+    border: '#1F3146',
+    primary: '#4A8DFF',
+    primaryText: '#FFFFFF',
+    primarySoft: '#13294A',
+    danger: '#FF6B6B',
+    dangerSoft: '#3A1719',
+    success: '#4CCB85',
+    successSoft: '#10301F',
+    warning: '#F0B04A',
+    warningSoft: '#33260F',
+    muted: '#152536',
   },
 } as const;
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+export type ThemeColors = { [K in keyof typeof Colors.light]: string };
+
+export function useTheme(): ThemeColors {
+  const scheme = useColorScheme();
+  return scheme === 'dark' ? Colors.dark : Colors.light;
+}
 
 export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
+  web: { sans: 'var(--font-display)', mono: 'var(--font-mono)' },
+  default: { sans: undefined, mono: 'monospace' },
 });
 
 export const Spacing = {
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  xxl: 32,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+export const Radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
+
+export const MaxContentWidth = 960;
