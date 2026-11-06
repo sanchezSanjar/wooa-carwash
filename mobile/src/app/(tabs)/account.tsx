@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { MyBills } from '@/components/bills';
 import { AppText, Banner, Button, Card, EmptyState, Screen, SectionTitle, TextField } from '@/components/ui';
 import { Spacing, useTheme } from '@/constants/theme';
 import { api } from '@/lib/api';
@@ -94,6 +95,8 @@ function Profile({ user }: { user: User }) {
           ) : null}
         </View>
       </Card>
+
+      <MyBills />
 
       <SectionTitle hint="Your mobile number is your login. Ask us to change it.">Profile</SectionTitle>
       <TextField label="Name" value={form.name} onChangeText={set('name')} autoComplete="name" />

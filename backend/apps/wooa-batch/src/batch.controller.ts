@@ -1,11 +1,21 @@
 import { Controller, Get, Logger } from '@nestjs/common';
 import { Cron, Timeout } from '@nestjs/schedule';
-import { BATCH_CLOSE_OUT, BATCH_TIMEZONE, BATCH_WASH_REMINDER } from './config';
+import {
+  BATCH_BILLING_ISSUE,
+  BATCH_CLOSE_OUT,
+  BATCH_PAYMENT_DUE,
+  BATCH_PAYMENT_OVERDUE,
+  BATCH_TIMEZONE,
+  BATCH_WASH_REMINDER,
+} from './config';
+import { BillingJob } from './jobs/billing.job';
 import { CloseOutJob } from './jobs/close-out.job';
 import { WashReminderJob } from './jobs/wash-reminder.job';
 
 /**
  * Scheduled jobs (cron: second minute hour day month weekday, Korea time).
+ * - 09:00 issue this month's bills (only those still missing)
+ * - 10:00 remind bills due in 3 days, 10:30 remind overdue bills (weekly)
  * - 20:00 wash reminders for tomorrow's washes
  * - 23:30 close out today's washes nobody marked
  * A failing job is logged and never stops the others; a job still running skips its next tick.
@@ -18,16 +28,32 @@ export class BatchController {
   constructor(
     private readonly reminder: WashReminderJob,
     private readonly closeOut: CloseOutJob,
+    private readonly billing: BillingJob,
   ) {}
 
   @Get()
   health() {
-    return { status: 'ok', name: 'wooa-carwash-batch', jobs: [BATCH_WASH_REMINDER, BATCH_CLOSE_OUT] };
+    return { status: 'ok', name: 'wooa-carwash-batch', jobs: [BATCH_BILLING_ISSUE, BATCH_PAYMENT_DUE, BATCH_PAYMENT_OVERDUE, BATCH_WASH_REMINDER, BATCH_CLOSE_OUT] };
   }
 
   @Timeout(1000)
   ready(): void {
     this.logger.log('BATCH SERVER IS READY');
+  }
+
+  @Cron('00 00 09 * * *', { name: BATCH_BILLING_ISSUE, timeZone: BATCH_TIMEZONE })
+  async issueBills(): Promise<void> {
+    await this.run(BATCH_BILLING_ISSUE, () => this.billing.issue());
+  }
+
+  @Cron('00 00 10 * * *', { name: BATCH_PAYMENT_DUE, timeZone: BATCH_TIMEZONE })
+  async paymentDue(): Promise<void> {
+    await this.run(BATCH_PAYMENT_DUE, () => this.billing.remindDueSoon());
+  }
+
+  @Cron('00 30 10 * * *', { name: BATCH_PAYMENT_OVERDUE, timeZone: BATCH_TIMEZONE })
+  async paymentOverdue(): Promise<void> {
+    await this.run(BATCH_PAYMENT_OVERDUE, () => this.billing.remindOverdue());
   }
 
   @Cron('00 00 20 * * *', { name: BATCH_WASH_REMINDER, timeZone: BATCH_TIMEZONE })
