@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
 import sharp from 'sharp';
+import ExcelJS from 'exceljs';
 import { mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -481,6 +482,65 @@ describe('day sheets', () => {
 
     const plan = await request(http).get('/subscriptions/me').set(auth(lee)).expect(200);
     expect(plan.body[0].schedule).toEqual([{ weekday: weekday(day), weeks: [1, 2, 3, 4] }]);
+  });
+
+  it('round-trips the day sheet through Excel', async () => {
+    await request(http).get('/daysheets/export').query({ from: day, days: 2 }).set(auth(washerToken)).expect(403);
+    const exported = await request(http)
+      .get('/daysheets/export')
+      .query({ from: day, days: 2 })
+      .set(auth(admin))
+      .buffer(true)
+      .parse((res, cb) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      })
+      .expect(200)
+      .expect('content-type', /spreadsheetml/);
+    expect(exported.headers['content-disposition']).toMatch(/wooa-daysheet-.+.xlsx/);
+
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load(exported.body as unknown as ArrayBuffer);
+    expect(book.worksheets.map((w) => w.name.slice(0, 10))).toEqual([day, next]);
+    const ws = book.worksheets[0];
+    const header = (ws.getRow(1).values as string[]).slice(1);
+    const col = (name: string) => header.findIndex((h) => h.startsWith(name)) + 1;
+    let leeRow = 0;
+    ws.eachRow((row, n) => {
+      if (row.getCell(col('Plate number')).value === '77다 7777') leeRow = n;
+    });
+    expect(leeRow).toBeGreaterThan(1);
+    expect(ws.getRow(leeRow).getCell(col('Washer')).value).toBe('Choi Washer');
+
+    // edit like an admin would in Excel: move it to the next day, change the note, add a typo row
+    ws.getRow(leeRow).getCell(col('Day')).value = next;
+    ws.getRow(leeRow).getCell(col('Note')).value = 'Bring ladder';
+    ws.addRow(['99', day, '99마 0000']);
+    const edited = Buffer.from(await book.xlsx.writeBuffer());
+
+    await request(http).post('/daysheets/import/preview').set(auth(admin)).attach('file', Buffer.from('not excel'), 'x.xlsx').expect(400);
+    const preview = await request(http)
+      .post('/daysheets/import/preview')
+      .set(auth(admin))
+      .attach('file', edited, 'edited.xlsx')
+      .expect(200);
+    expect(preview.body.changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'moved', plateNumber: '77다 7777' }),
+        expect.objectContaining({ type: 'note', plateNumber: '77다 7777', detail: 'note: “Bring ladder”' }),
+      ]),
+    );
+    expect(preview.body.problems).toEqual([expect.objectContaining({ plateNumber: '99마 0000', message: expect.stringMatching(/No car/) })]);
+
+    // nothing is saved until apply
+    expect((await request(http).get(`/daysheets/${next}`).set(auth(admin))).body.rows.some((r: { subscriptionId: string }) => r.subscriptionId === leeSub)).toBe(false);
+    const applied = await request(http).post('/daysheets/import/apply').set(auth(admin)).send({ plan: preview.body.plan }).expect(200);
+    expect(applied.body.saved).toEqual(expect.arrayContaining([day, next]));
+
+    const onNext = (await request(http).get(`/daysheets/${next}`).set(auth(admin))).body.rows.find((r: { subscriptionId: string }) => r.subscriptionId === leeSub);
+    expect(onNext).toMatchObject({ moved: true, note: 'Bring ladder', washerName: 'Choi Washer', scheduledDate: day });
+    expect((await request(http).get(`/daysheets/${day}`).set(auth(admin))).body.rows.some((r: { subscriptionId: string }) => r.subscriptionId === leeSub)).toBe(false);
   });
 
   it('records the day a moved car was actually washed', async () => {

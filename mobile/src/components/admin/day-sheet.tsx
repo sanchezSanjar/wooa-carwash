@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Modal, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 
+import { SheetExcel } from '@/components/admin/sheet-excel';
 import { AppText, Badge, Banner, Button, Card, DateStrip, EmptyState, Loading } from '@/components/ui';
 import { Fonts, Radius, Spacing, useTheme } from '@/constants/theme';
 import { api } from '@/lib/api';
@@ -45,6 +46,7 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
   const [adding, setAdding] = useState(false);
   const [moving, setMoving] = useState<DaySheetRow | null>(null);
   const [assigning, setAssigning] = useState<DaySheetRow | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const accept = useCallback((s: Sheet) => {
     setSheet(s);
@@ -65,7 +67,7 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
     return () => {
       cancelled = true;
     };
-  }, [date, isAdmin, accept]);
+  }, [date, isAdmin, accept, reloadKey]);
 
   const dirty = !!sheet && JSON.stringify(toSave(rows)) !== JSON.stringify(toSave(sheet.rows));
   const done = rows.filter((r) => r.status === 'done').length;
@@ -156,6 +158,7 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
         </View>
         {isAdmin ? (
           <>
+            <SheetExcel date={date} onImported={() => setReloadKey((k) => k + 1)} />
             <Button title="Add car" variant="secondary" icon="add" onPress={() => setAdding(true)} />
             {dirty ? <Button title="Discard" variant="ghost" onPress={() => sheet && setRows(sheet.rows)} /> : null}
             <Button title={dirty ? 'Save sheet' : sheet?.saved ? 'Saved' : 'Save sheet'} icon="save-outline" disabled={!dirty && !!sheet?.saved} loading={saving} onPress={save} />

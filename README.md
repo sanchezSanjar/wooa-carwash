@@ -30,6 +30,7 @@ First admins come from `ADMIN_PHONES` / `ADMIN_EMAILS` in `backend/.env`; after 
   - "Week N" is the Nth occurrence of that weekday in the month; a 5th occurrence is skipped, so every month has exactly the plan's number of washes.
   - Extras (vacuuming, perfume, anti-rain polish, tire shine) are done with every wash. Monthly price = plan + extras × washes.
 - **Day sheet**: the admin's workbook for one day. It starts as the schedule; admins reorder cars, assign washers, add notes, pull in missed or upcoming cars, or move a car to another day, then save. Only that day's sheet is saved — cars, members and plans never change. A moved wash keeps its scheduled date and records the day it was really washed.
+- **Excel**: “Export to Excel” downloads 1, 7 or 14 days, one tab per day. Edit the yellow columns (order, day, washer, note) — change the Day to move a car — and “Import from Excel” shows every change and problem before anything is saved. Imports only change day sheets, never cars, members, plans or wash results.
 - **Bills**: on the 1st (and daily for new plans) the batch server issues each car's bill — a plan that starts mid-month pays only for the washes left that month. Bills are due on `PAYMENT_DUE_DAY` (at least 7 days after issue). Members get an SMS when it's issued, 3 days before it's due and weekly while overdue. Payment happens outside the app (bank transfer, cash); admins mark bills paid.
 - **Weather**: forecasts from the Korea Meteorological Administration are stored for the next days and shown on the day sheets; the evening before, members with a wash get a notice when rain or snow is likely.
 
@@ -68,7 +69,7 @@ npm run start:dev:batch  # batch server (second terminal)
 | Cars | `GET /cars/me` · `POST /cars` · `PATCH/DELETE /cars/:id` · admin: `GET /cars?ownerId=` |
 | Plans | `POST /subscriptions` · `GET /subscriptions/me` · `PATCH /subscriptions/:id`, `/:id/tariff`, `/:id/cancel` · admin: `GET /subscriptions` |
 | Washes | staff: `GET/PATCH /washes`, `POST /washes/photos`, `DELETE /washes/photos/:id` · `GET /washes/detail` · `PUT /washes/review` · admin: `GET /washes/reviews` |
-| Day sheets | staff: `GET /daysheets/:date`, `/daysheets/staff` · admin: `PUT /daysheets/:date`, `POST /daysheets/:date/move`, `GET /daysheets/:date/candidates` |
+| Day sheets | staff: `GET /daysheets/:date`, `/daysheets/staff` · admin: `PUT /daysheets/:date`, `POST /daysheets/:date/move`, `GET /daysheets/:date/candidates`, `GET /daysheets/export?from=&days=`, `POST /daysheets/import/preview`, `POST /daysheets/import/apply` |
 | Bills | `GET /invoices/me` · admin: `GET /invoices?month=`, `/invoices/overdue`, `PATCH /invoices/:id` |
 | Updates | `GET /notifications/me` · `PATCH /notifications/read-all` |
 

@@ -11,6 +11,7 @@ export function configureApp(app: INestApplication) {
   (app as NestExpressApplication).useStaticAssets(uploadRoot(), { prefix: '/uploads/', maxAge: '30d', index: false });
   app.enableCors({
     origin: process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()) ?? true,
+    exposedHeaders: ['Content-Disposition'],
   });
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),

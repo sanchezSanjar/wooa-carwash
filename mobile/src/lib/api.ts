@@ -6,6 +6,7 @@ import type {
   Car,
   CarInput,
   DayPlanItem,
+  SheetImportPreview,
   Invoice,
   InvoiceMonth,
   InvoiceStatus,
@@ -27,6 +28,8 @@ import type {
   WashStatus,
 } from './types';
 
+export const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
 /** Full URL for a file the API serves, e.g. /uploads/... */
 export const fileUrl = (path: string) => (path.startsWith('http') ? path : `${API_URL}${path}`);
 
@@ -44,6 +47,8 @@ export class ApiError extends Error {
 
 let authToken: string | null = null;
 let onUnauthorized: (() => void) | null = null;
+
+export const getAuthToken = () => authToken;
 
 export function setAuthToken(token: string | null) {
   authToken = token;
@@ -184,6 +189,18 @@ export const api = {
   overdueInvoices: () => request<Invoice[]>('GET', '/invoices/overdue'),
   setInvoiceStatus: (id: string, body: { status: InvoiceStatus; method?: PaymentMethod; note?: string }) =>
     request<Invoice>('PATCH', `/invoices/${id}`, body),
+
+  previewSheetImport: async (file: { uri: string; name: string; mimeType?: string; file?: Blob }) => {
+    const form = new FormData();
+    if (Platform.OS === 'web') {
+      form.append('file', file.file ?? (await (await fetch(file.uri)).blob()), file.name);
+    } else {
+      form.append('file', { uri: file.uri, name: file.name, type: file.mimeType ?? XLSX_TYPE } as unknown as Blob);
+    }
+    return request<SheetImportPreview>('POST', '/daysheets/import/preview', form);
+  },
+  applySheetImport: (plan: SheetImportPreview['plan']) =>
+    request<{ saved: string[] }>('POST', '/daysheets/import/apply', { plan }),
 
   dayPlan: (date: string) => request<DayPlanItem[]>('GET', `/washes?date=${encodeURIComponent(date)}`),
   setWashStatus: (body: { subscriptionId: string; date: string; status: WashStatus; note?: string; washedOn?: string }) =>
