@@ -26,8 +26,8 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: theme.textSecondary,
         tabBarStyle: { backgroundColor: theme.card, borderTopColor: theme.border },
       }}>
-      <Tabs.Screen name="index" options={{ title: 'Wash', tabBarIcon: icon('water') }} />
-      <Tabs.Screen name="bookings" options={{ title: 'My bookings', tabBarIcon: icon('calendar') }} />
+      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: icon('water') }} />
+      <Tabs.Screen name="cars" options={{ title: 'My cars', tabBarIcon: icon('car') }} />
       <Tabs.Screen
         name="admin"
         options={{ title: 'Manage', tabBarIcon: icon('briefcase'), href: isAdmin ? undefined : null }}

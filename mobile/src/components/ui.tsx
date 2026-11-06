@@ -19,8 +19,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Fonts, MaxContentWidth, Radius, Spacing, useTheme } from '@/constants/theme';
-import { STATUS_LABEL } from '@/lib/format';
-import type { BookingStatus } from '@/lib/types';
 
 type Variant = 'title' | 'heading' | 'body' | 'label' | 'caption';
 
@@ -187,20 +185,72 @@ export function Banner({ message, tone = 'danger' }: { message: string; tone?: '
   );
 }
 
-export function StatusBadge({ status }: { status: BookingStatus }) {
+export function Badge({
+  label,
+  tone = 'neutral',
+}: {
+  label: string;
+  tone?: 'neutral' | 'primary' | 'success' | 'warning';
+}) {
   const theme = useTheme();
-  const tone = {
-    pending: { bg: theme.warningSoft, fg: theme.warning },
-    confirmed: { bg: theme.primarySoft, fg: theme.primary },
-    in_progress: { bg: theme.primarySoft, fg: theme.primary },
-    completed: { bg: theme.successSoft, fg: theme.success },
-    cancelled: { bg: theme.muted, fg: theme.textSecondary },
-  }[status];
+  const colors = {
+    neutral: { bg: theme.muted, fg: theme.textSecondary },
+    primary: { bg: theme.primarySoft, fg: theme.primary },
+    success: { bg: theme.successSoft, fg: theme.success },
+    warning: { bg: theme.warningSoft, fg: theme.warning },
+  }[tone];
   return (
-    <View style={[styles.badge, { backgroundColor: tone.bg }]}>
-      <AppText variant="caption" color={tone.fg} style={{ fontWeight: '600' }}>
-        {STATUS_LABEL[status]}
+    <View style={[styles.badge, { backgroundColor: colors.bg }]}>
+      <AppText variant="caption" color={colors.fg} style={{ fontWeight: '600' }}>
+        {label}
       </AppText>
+    </View>
+  );
+}
+
+/** Selectable pill, used for weekdays, tariffs and extras. */
+export function Chip({
+  label,
+  selected,
+  disabled,
+  onPress,
+  style,
+}: {
+  label: string;
+  selected: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.chip,
+        {
+          backgroundColor: selected ? theme.primary : theme.card,
+          borderColor: selected ? theme.primary : theme.border,
+        },
+        disabled && { opacity: 0.4 },
+        pressed && { opacity: 0.8 },
+        style,
+      ]}>
+      <AppText variant="label" color={selected ? theme.primaryText : theme.text}>
+        {label}
+      </AppText>
+    </Pressable>
+  );
+}
+
+export function SectionTitle({ children, hint }: { children: React.ReactNode; hint?: string }) {
+  return (
+    <View style={{ gap: 2 }}>
+      <AppText variant="heading">{children}</AppText>
+      {hint ? <AppText variant="caption">{hint}</AppText> : null}
     </View>
   );
 }
@@ -283,6 +333,15 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     padding: Spacing.md,
     borderRadius: Radius.md,
+  },
+  chip: {
+    minHeight: 40,
+    minWidth: 52,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   badge: {
     alignSelf: 'flex-start',

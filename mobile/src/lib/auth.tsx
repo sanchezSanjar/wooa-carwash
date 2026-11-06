@@ -4,11 +4,20 @@ import { api, setAuthToken, setUnauthorizedHandler } from './api';
 import { tokenStorage } from './storage';
 import type { AuthResponse, User } from './types';
 
+export interface RegisterInput {
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  apartmentName: string;
+}
+
 interface AuthState {
   user: User | null;
   ready: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: { name: string; email: string; password: string; phone?: string }) => Promise<void>;
+  register: (data: RegisterInput) => Promise<void>;
+  updateProfile: (data: Partial<Pick<User, 'name' | 'phone' | 'apartmentName'>>) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -54,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ready,
       login: async (email, password) => accept(await api.login({ email, password })),
       register: async (data) => accept(await api.register(data)),
+      updateProfile: async (data) => setUser(await api.updateProfile(data)),
       logout,
     }),
     [user, ready, accept, logout],

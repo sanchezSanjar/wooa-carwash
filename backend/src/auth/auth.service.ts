@@ -35,7 +35,8 @@ export class AuthService {
       user = await this.users.create({
         name: dto.name.trim(),
         email,
-        phone: dto.phone?.trim() || undefined,
+        phone: dto.phone.trim(),
+        apartmentName: dto.apartmentName.trim(),
         passwordHash: await bcrypt.hash(dto.password, 10),
         role: adminEmails.includes(email) ? Role.Admin : Role.Customer,
       });

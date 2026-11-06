@@ -10,8 +10,12 @@ export class User {
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email: string;
 
-  @Prop({ trim: true })
-  phone?: string;
+  @Prop({ required: true, trim: true })
+  phone: string;
+
+  /** Apartment complex the member lives in, e.g. "Raemian Gwanggyo". */
+  @Prop({ required: true, trim: true, index: true })
+  apartmentName: string;
 
   @Prop({ required: true, select: false })
   passwordHash: string;

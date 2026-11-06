@@ -1,57 +1,58 @@
-import type { BookingStatus } from './types';
+import type { ScheduleDay } from './types';
 
 /** The shop runs on Korea time (UTC+9, no DST) regardless of the device's timezone. */
 const SHOP_OFFSET_MS = 9 * 60 * 60_000;
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export const WEEKDAYS_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const shop = (iso: string | Date) => new Date(new Date(iso).getTime() + SHOP_OFFSET_MS);
-const pad = (n: number) => String(n).padStart(2, '0');
 
 export function formatKRW(amount: number) {
   return `₩${Math.round(amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 }
 
-export function formatDuration(minutes: number) {
-  if (minutes < 60) return `${minutes} min`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m ? `${h} h ${m} min` : `${h} h`;
-}
+const utc = (date: string) => new Date(`${date}T00:00:00Z`);
 
-export function formatTime(iso: string) {
-  const d = shop(iso);
-  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
-}
-
-export function formatDate(iso: string) {
-  const d = shop(iso);
+/** "Mon, Nov 16" for a YYYY-MM-DD date. */
+export function formatDay(date: string) {
+  const d = utc(date);
   return `${WEEKDAYS[d.getUTCDay()]}, ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
 
 /** YYYY-MM-DD shop dates starting today. */
 export function upcomingDates(count: number, from = new Date()): string[] {
-  const start = shop(from);
-  return Array.from({ length: count }, (_, i) => {
-    const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + i));
-    return d.toISOString().slice(0, 10);
-  });
+  const start = new Date(from.getTime() + SHOP_OFFSET_MS);
+  return Array.from({ length: count }, (_, i) =>
+    new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + i))
+      .toISOString()
+      .slice(0, 10),
+  );
 }
 
 export function todayShopDate() {
   return upcomingDates(1)[0];
 }
 
-/** Label pieces for a YYYY-MM-DD date chip. */
 export function dateChip(date: string) {
-  const d = new Date(`${date}T00:00:00Z`);
+  const d = utc(date);
   return { weekday: WEEKDAYS[d.getUTCDay()], day: d.getUTCDate(), month: MONTHS[d.getUTCMonth()] };
 }
 
-export const STATUS_LABEL: Record<BookingStatus, string> = {
-  pending: 'Pending',
-  confirmed: 'Confirmed',
-  in_progress: 'In progress',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-};
+const ORDINAL = ['', '1st', '2nd', '3rd', '4th'];
+
+/** "Mon & Fri (weeks 1 & 3) · Wed (weeks 2 & 4)" */
+export function scheduleSummary(schedule: ScheduleDay[]) {
+  const groups = new Map<string, number[]>();
+  for (const d of schedule) {
+    const key = d.weeks.join(',');
+    groups.set(key, [...(groups.get(key) ?? []), d.weekday]);
+  }
+  return [...groups.entries()]
+    .map(([weeks, days]) => {
+      const names = days.map((d) => WEEKDAYS[d]).join(' & ');
+      const w = weeks.split(',').map(Number);
+      return w.length === 4 ? `Every ${names}` : `${w.map((n) => ORDINAL[n]).join(' & ')} ${names}`;
+    })
+    .join(' · ');
+}
+
+export const STATUS_LABEL = { planned: 'Planned', done: 'Washed', skipped: 'Skipped' } as const;
