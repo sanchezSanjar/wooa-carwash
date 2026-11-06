@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { isValidObjectId, Model, Types } from 'mongoose';
 import { AuthUser, Role } from '../auth/roles';
@@ -23,16 +23,26 @@ export class CarsService {
   constructor(@InjectModel(Car.name) private readonly model: Model<Car>) {}
 
   async listMine(user: AuthUser): Promise<PublicCar[]> {
+    return this.listForOwner(user.userId);
+  }
+
+  async listForOwner(ownerId: string): Promise<PublicCar[]> {
+    if (!isValidObjectId(ownerId)) return [];
     const cars = await this.model
-      .find({ owner: new Types.ObjectId(user.userId) })
+      .find({ owner: new Types.ObjectId(ownerId) })
       .sort({ createdAt: 1 })
       .exec();
     return cars.map(CarsService.toPublic);
   }
 
+  /** Members add their own cars; an admin can add a car for any member with ownerId. */
   async create(user: AuthUser, dto: CreateCarDto): Promise<PublicCar> {
+    const { ownerId, ...data } = dto;
+    if (ownerId && user.role !== Role.Admin) throw new ForbiddenException('Only admins can add cars for others');
+    const owner = ownerId ?? user.userId;
+    if (!isValidObjectId(owner)) throw new NotFoundException('Member not found');
     try {
-      const car = await this.model.create({ ...dto, owner: new Types.ObjectId(user.userId) });
+      const car = await this.model.create({ ...data, owner: new Types.ObjectId(owner) });
       return CarsService.toPublic(car);
     } catch (err: any) {
       if (err?.code === 11000) throw new ConflictException('A car with this plate number is already registered');

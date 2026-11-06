@@ -6,6 +6,7 @@ import type {
   Car,
   CarInput,
   DayPlanItem,
+  Role,
   Extra,
   ScheduleDay,
   Subscription,
@@ -77,11 +78,28 @@ function capitalize(s: string) {
 }
 
 export const api = {
-  register: (body: { name: string; email: string; password: string; phone: string; apartmentName: string }) =>
+  requestOtp: (phone: string, purpose: 'signup' | 'reset') =>
+    request<{ message: string }>('POST', '/auth/otp/request', { phone, purpose }),
+  verifyOtp: (phone: string, purpose: 'signup' | 'reset', code: string) =>
+    request<{ verified: true; resetToken?: string }>('POST', '/auth/otp/verify', { phone, purpose, code }),
+  register: (body: { name: string; phone: string; password: string; apartmentName: string; email?: string }) =>
     request<AuthResponse>('POST', '/auth/register', body),
-  login: (body: { email: string; password: string }) => request<AuthResponse>('POST', '/auth/login', body),
+  login: (body: { phone: string; password: string }) => request<AuthResponse>('POST', '/auth/login', body),
+  resetPassword: (resetToken: string, newPassword: string) =>
+    request<{ message: string }>('POST', '/auth/reset-password', { resetToken, newPassword }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<void>('POST', '/members/me/password', { currentPassword, newPassword }),
+
+  members: (search?: string) =>
+    request<User[]>('GET', `/members${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+  member: (id: string) => request<User>('GET', `/members/${id}`),
+  createMember: (body: { name: string; phone: string; apartmentName: string; role: Role; email?: string }) =>
+    request<User>('POST', '/members', body),
+  updateMember: (id: string, body: Partial<Pick<User, 'name' | 'phone' | 'apartmentName' | 'role' | 'status'>> & { email?: string }) =>
+    request<User>('PATCH', `/members/${id}`, body),
+  carsForMember: (ownerId: string) => request<Car[]>('GET', `/cars?ownerId=${ownerId}`),
   me: () => request<User>('GET', '/auth/me'),
-  updateProfile: (body: Partial<Pick<User, 'name' | 'phone' | 'apartmentName'>>) =>
+  updateProfile: (body: { name?: string; apartmentName?: string; email?: string }) =>
     request<User>('PATCH', '/members/me', body),
 
   tariffs: () => request<Tariff[]>('GET', '/tariffs'),
@@ -94,7 +112,7 @@ export const api = {
     request<Extra>('PATCH', `/extras/${id}`, body),
 
   myCars: () => request<Car[]>('GET', '/cars/me'),
-  createCar: (body: CarInput) => request<Car>('POST', '/cars', body),
+  createCar: (body: CarInput & { ownerId?: string }) => request<Car>('POST', '/cars', body),
   updateCar: (id: string, body: Partial<CarInput>) => request<Car>('PATCH', `/cars/${id}`, body),
   deleteCar: (id: string) => request<void>('DELETE', `/cars/${id}`),
 

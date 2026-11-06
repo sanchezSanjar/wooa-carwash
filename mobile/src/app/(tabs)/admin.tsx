@@ -3,37 +3,45 @@ import { Redirect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
+import { MembersPanel } from '@/components/admin/members-panel';
 import { CarMeta } from '@/components/car-card';
 import { AppText, Badge, Banner, Button, Card, DateStrip, EmptyState, Loading, Screen } from '@/components/ui';
 import { Fonts, Radius, Spacing, useTheme } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { formatKRW, STATUS_LABEL, upcomingDates } from '@/lib/format';
+import { formatKRW, formatPhone, STATUS_LABEL, upcomingDates } from '@/lib/format';
 import type { DayPlanItem, Extra, Tariff, WashStatus } from '@/lib/types';
+
+type Tab = 'route' | 'members' | 'prices';
+const TAB_LABEL: Record<Tab, string> = { route: 'Wash route', members: 'Members', prices: 'Plans & prices' };
 
 export default function AdminScreen() {
   const { user } = useAuth();
-  if (user?.role !== 'admin') return <Redirect href="/" />;
-  return <Dashboard />;
+  if (user?.role !== 'admin' && user?.role !== 'washer') return <Redirect href="/" />;
+  return <Dashboard isAdmin={user.role === 'admin'} />;
 }
 
-function Dashboard() {
+function Dashboard({ isAdmin }: { isAdmin: boolean }) {
   const theme = useTheme();
-  const [tab, setTab] = useState<'route' | 'prices'>('route');
+  const [tab, setTab] = useState<Tab>('route');
+  // washers only see the route; admins see everything
+  const tabs: Tab[] = isAdmin ? ['route', 'members', 'prices'] : ['route'];
   return (
     <Screen>
       <AppText variant="title">Manage</AppText>
-      <View style={[styles.segment, { backgroundColor: theme.muted }]}>
-        {(['route', 'prices'] as const).map((t) => (
-          <Pressable key={t} onPress={() => setTab(t)} style={[styles.segmentItem, tab === t && { backgroundColor: theme.card }]}>
-            <AppText variant="label" color={tab === t ? theme.text : theme.textSecondary}>
-              {t === 'route' ? 'Wash route' : 'Plans & prices'}
-            </AppText>
-          </Pressable>
-        ))}
-      </View>
-      {tab === 'route' ? <Route /> : <Prices />}
+      {tabs.length > 1 ? (
+        <View style={[styles.segment, { backgroundColor: theme.muted }]}>
+          {tabs.map((t) => (
+            <Pressable key={t} onPress={() => setTab(t)} style={[styles.segmentItem, tab === t && { backgroundColor: theme.card }]}>
+              <AppText variant="label" color={tab === t ? theme.text : theme.textSecondary}>
+                {TAB_LABEL[t]}
+              </AppText>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+      {tab === 'route' ? <Route /> : tab === 'members' ? <MembersPanel /> : <Prices />}
     </Screen>
   );
 }
@@ -138,7 +146,7 @@ function RouteItem({ item, busy, onStatus }: { item: DayPlanItem; busy: boolean;
       <View style={styles.meta}>
         <CarMeta icon="time-outline" text={`Parked ${item.car.arrivesHomeAt} → ${item.car.leavesForWorkAt}`} />
         <Pressable onPress={() => Linking.openURL(`tel:${item.member.phone.replace(/[^\d+]/g, '')}`)}>
-          <CarMeta icon="call-outline" text={`${item.member.name} · ${item.member.phone}`} />
+          <CarMeta icon="call-outline" text={`${item.member.name} · ${formatPhone(item.member.phone)}`} />
         </Pressable>
       </View>
       <View style={styles.extras}>

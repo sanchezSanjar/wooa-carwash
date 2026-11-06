@@ -48,7 +48,7 @@ export class SubscriptionsController {
 @ApiTags('washes')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Admin)
+@Roles(Role.Washer)
 @Controller('washes')
 export class WashesController {
   constructor(private readonly subs: SubscriptionsService) {}

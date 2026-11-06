@@ -1,10 +1,15 @@
-import { ApiProperty, PartialType } from '@nestjs/swagger';
-import { IsString, Matches, MaxLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
+import { IsMongoId, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 import { TIME_RE } from '@app/common/dates';
 
 const NOT_EMPTY = /\S/;
 
 export class CreateCarDto {
+  @ApiPropertyOptional({ description: 'Admin only: add the car to this member' })
+  @IsOptional()
+  @IsMongoId()
+  ownerId?: string;
+
   @ApiProperty({ example: '12가 3456' })
   @IsString()
   @MaxLength(20)
@@ -50,4 +55,4 @@ export class CreateCarDto {
   leavesForWorkAt: string;
 }
 
-export class UpdateCarDto extends PartialType(CreateCarDto) {}
+export class UpdateCarDto extends PartialType(OmitType(CreateCarDto, ['ownerId'] as const)) {}
