@@ -5,10 +5,12 @@ import { Spacing, useTheme } from '@/constants/theme';
 import type { Car } from '@/lib/types';
 
 import { AppText, Card } from './ui';
+import { useI18n } from '@/lib/i18n';
 
 /** Plate, model and where/when the car is parked. */
 export function CarCard({ car, children, footer }: { car: Car; children?: React.ReactNode; footer?: React.ReactNode }) {
   const theme = useTheme();
+  const { t } = useI18n();
   return (
     <Card>
       <View style={styles.row}>
@@ -24,9 +26,9 @@ export function CarCard({ car, children, footer }: { car: Car; children?: React.
         {children}
       </View>
       <View style={styles.meta}>
-        <CarMeta icon="business-outline" text={`Bldg ${car.buildingNumber} · Floor ${car.parkingFloor}`} />
-        <CarMeta icon="home-outline" text={`Home from ${car.arrivesHomeAt}`} />
-        <CarMeta icon="briefcase-outline" text={`Leaves ${car.leavesForWorkAt}`} />
+        <CarMeta icon="business-outline" text={t('Bldg {building} · Floor {floor}', { building: car.buildingNumber, floor: car.parkingFloor })} />
+        <CarMeta icon="home-outline" text={t('Home from {time}', { time: car.arrivesHomeAt })} />
+        <CarMeta icon="briefcase-outline" text={t('Leaves {time}', { time: car.leavesForWorkAt })} />
       </View>
       {footer}
     </Card>

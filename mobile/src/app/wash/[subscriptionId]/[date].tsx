@@ -12,8 +12,8 @@ import { useApi } from '@/hooks/use-api';
 import { api, fileUrl } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { confirm } from '@/lib/confirm';
-import { formatDay, STATUS_LABEL } from '@/lib/format';
 import type { PhotoKind, WashDetail, WashPhoto, WashStatus } from '@/lib/types';
+import { useI18n } from '@/lib/i18n';
 
 const KIND_TITLE: Record<PhotoKind, { title: string; hint: string }> = {
   before: { title: 'Before the wash', hint: 'Inspection photos of existing scratches or dents.' },
@@ -23,6 +23,7 @@ const KIND_TITLE: Record<PhotoKind, { title: string; hint: string }> = {
 export default function WashScreen() {
   const { subscriptionId, date } = useLocalSearchParams<{ subscriptionId: string; date: string }>();
   const { user } = useAuth();
+  const { t, fmt } = useI18n();
   const load = useCallback(() => api.washDetail(subscriptionId, date), [subscriptionId, date]);
   const { data, setData, error, loading, refresh } = useApi(load);
   const staff = user?.role === 'admin' || user?.role === 'washer';
@@ -31,23 +32,23 @@ export default function WashScreen() {
   if (error || !data) {
     return (
       <Screen>
-        <EmptyState icon="alert-circle-outline" title="Wash not found" message={error ?? undefined} />
+        <EmptyState icon="alert-circle-outline" title={t('Wash not found')} message={error ?? undefined} />
       </Screen>
     );
   }
 
   return (
     <Screen contentStyle={{ maxWidth: 820 }}>
-      <Stack.Screen options={{ title: `${data.car?.plateNumber ?? 'Wash'} · ${formatDay(date)}` }} />
+      <Stack.Screen options={{ title: `${data.car?.plateNumber ?? t('Wash')} · ${fmt.day(date)}` }} />
       {data.car ? (
         <CarCard car={data.car}>
-          <Badge label={STATUS_LABEL[data.status]} tone={data.status === 'done' ? 'success' : data.status === 'skipped' ? 'neutral' : 'warning'} />
+          <Badge label={fmt.status(data.status)} tone={data.status === 'done' ? 'success' : data.status === 'skipped' ? 'neutral' : 'warning'} />
         </CarCard>
       ) : null}
       <AppText variant="caption">
-        {data.tariffName}
-        {data.extras.length ? ` · ${data.extras.join(', ')}` : ''}
-        {data.washedOn && data.washedOn !== date ? ` · washed on ${formatDay(data.washedOn)}` : ''}
+        {fmt.name(data.tariffName)}
+        {data.extras.length ? ` · ${data.extras.map(fmt.name).join(', ')}` : ''}
+        {data.washedOn && data.washedOn !== date ? t(' · washed on {date}', { date: fmt.day(data.washedOn) }) : ''}
       </AppText>
 
       {staff ? <StatusActions detail={data} onChange={(status) => setData((d) => d && { ...d, status })} /> : null}
@@ -66,7 +67,7 @@ export default function WashScreen() {
       {!staff ? <ReviewBox detail={data} onSaved={(review) => setData((d) => d && { ...d, review })} /> : null}
       {staff && data.review ? (
         <Card style={{ gap: Spacing.xs }}>
-          <SectionTitle>Member rating</SectionTitle>
+          <SectionTitle>{t('Member rating')}</SectionTitle>
           <Stars value={data.review.rating} />
           {data.review.comment ? <AppText>{data.review.comment}</AppText> : null}
         </Card>
@@ -76,6 +77,7 @@ export default function WashScreen() {
 }
 
 function StatusActions({ detail, onChange }: { detail: WashDetail; onChange: (s: WashStatus) => void }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = async (status: WashStatus) => {
@@ -85,7 +87,7 @@ function StatusActions({ detail, onChange }: { detail: WashDetail; onChange: (s:
       await api.setWashStatus({ subscriptionId: detail.subscriptionId, date: detail.date, status });
       onChange(status);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not update');
+      setError(e instanceof Error ? e.message : t('Could not update'));
     } finally {
       setBusy(false);
     }
@@ -96,11 +98,11 @@ function StatusActions({ detail, onChange }: { detail: WashDetail; onChange: (s:
       <View style={styles.row}>
         {detail.status === 'planned' ? (
           <>
-            <Button title="Mark washed" icon="checkmark" loading={busy} onPress={() => set('done')} />
-            <Button title="Skip" variant="secondary" disabled={busy} onPress={() => set('skipped')} />
+            <Button title={t('Mark washed')} icon="checkmark" loading={busy} onPress={() => set('done')} />
+            <Button title={t('Skip')} variant="secondary" disabled={busy} onPress={() => set('skipped')} />
           </>
         ) : (
-          <Button title="Undo" variant="ghost" icon="arrow-undo" loading={busy} onPress={() => set('planned')} />
+          <Button title={t('Undo')} variant="ghost" icon="arrow-undo" loading={busy} onPress={() => set('planned')} />
         )}
       </View>
     </View>
@@ -121,6 +123,7 @@ function PhotoSection({
   onChanged: () => void;
 }) {
   const theme = useTheme();
+  const { t } = useI18n();
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +134,7 @@ function PhotoSection({
     const perm =
       source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      setError(source === 'camera' ? 'Allow camera access to take photos' : 'Allow photo access to choose photos');
+      setError(source === 'camera' ? t('Allow camera access to take photos') : t('Allow photo access to choose photos'));
       return;
     }
     const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.8, allowsMultipleSelection: source === 'library' };
@@ -152,20 +155,20 @@ function PhotoSection({
       setNote('');
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not upload the photo');
+      setError(e instanceof Error ? e.message : t('Could not upload the photo'));
     } finally {
       setBusy(false);
     }
   };
 
   const remove = async (p: WashPhoto) => {
-    if (!(await confirm('Delete photo?', 'The member will no longer see it.', 'Delete'))) return;
+    if (!(await confirm(t('Delete photo?'), t('The member will no longer see it.'), t('Delete')))) return;
     try {
       await api.deletePhoto(p.id);
       setOpen(null);
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not delete the photo');
+      setError(e instanceof Error ? e.message : t('Could not delete the photo'));
     }
   };
 
@@ -173,9 +176,9 @@ function PhotoSection({
 
   return (
     <View style={{ gap: Spacing.md }}>
-      <SectionTitle hint={KIND_TITLE[kind].hint}>{KIND_TITLE[kind].title}</SectionTitle>
+      <SectionTitle hint={t(KIND_TITLE[kind].hint)}>{t(KIND_TITLE[kind].title)}</SectionTitle>
       {error ? <Banner message={error} /> : null}
-      {photos.length === 0 ? <AppText variant="caption">No photos yet.</AppText> : null}
+      {photos.length === 0 ? <AppText variant="caption">{t('No photos yet.')}</AppText> : null}
       <View style={styles.grid}>
         {photos.map((p) => (
           <Pressable key={p.id} onPress={() => setOpen(p)} style={[styles.thumb, { borderColor: theme.border }]} accessibilityRole="imagebutton">
@@ -193,13 +196,13 @@ function PhotoSection({
       {canEdit ? (
         <Card style={{ gap: Spacing.sm }}>
           {kind === 'before' ? (
-            <TextField label="Note for the next photo (optional)" value={note} onChangeText={setNote} placeholder="e.g. Scratch on rear bumper" />
+            <TextField label={t('Note for the next photo (optional)')} value={note} onChangeText={setNote} placeholder={t('e.g. Scratch on rear bumper')} />
           ) : null}
           <View style={styles.row}>
             {Platform.OS !== 'web' ? (
-              <Button title="Take photo" icon="camera-outline" loading={busy} onPress={() => pick('camera')} />
+              <Button title={t('Take photo')} icon="camera-outline" loading={busy} onPress={() => pick('camera')} />
             ) : null}
-            <Button title={Platform.OS === 'web' ? 'Upload photos' : 'Choose photos'} variant="secondary" icon="images-outline" disabled={busy} onPress={() => pick('library')} />
+            <Button title={Platform.OS === 'web' ? t('Upload photos') : t('Choose photos')} variant="secondary" icon="images-outline" disabled={busy} onPress={() => pick('library')} />
           </View>
         </Card>
       ) : null}
@@ -213,8 +216,8 @@ function PhotoSection({
             </AppText>
           ) : null}
           <View style={styles.row}>
-            <Button title="Close" variant="secondary" icon="close" onPress={() => setOpen(null)} />
-            {canEdit && open ? <Button title="Delete" variant="danger" icon="trash-outline" onPress={() => remove(open)} /> : null}
+            <Button title={t('Close')} variant="secondary" icon="close" onPress={() => setOpen(null)} />
+            {canEdit && open ? <Button title={t('Delete')} variant="danger" icon="trash-outline" onPress={() => remove(open)} /> : null}
           </View>
         </View>
       </Modal>
@@ -223,6 +226,7 @@ function PhotoSection({
 }
 
 function ReviewBox({ detail, onSaved }: { detail: WashDetail; onSaved: (r: WashDetail['review']) => void }) {
+  const { t } = useI18n();
   const [rating, setRating] = useState(detail.review?.rating ?? 0);
   const [comment, setComment] = useState(detail.review?.comment ?? '');
   const [message, setMessage] = useState<{ text: string; tone: 'success' | 'danger' } | null>(null);
@@ -231,7 +235,7 @@ function ReviewBox({ detail, onSaved }: { detail: WashDetail; onSaved: (r: WashD
   if (!detail.canReview) {
     return detail.review ? (
       <Card style={{ gap: Spacing.xs }}>
-        <SectionTitle>Your rating</SectionTitle>
+        <SectionTitle>{t('Your rating')}</SectionTitle>
         <Stars value={detail.review.rating} />
         {detail.review.comment ? <AppText>{detail.review.comment}</AppText> : null}
       </Card>
@@ -239,14 +243,14 @@ function ReviewBox({ detail, onSaved }: { detail: WashDetail; onSaved: (r: WashD
   }
 
   const save = async () => {
-    if (rating < 1) return setMessage({ text: 'Tap the stars to rate the wash', tone: 'danger' });
+    if (rating < 1) return setMessage({ text: t('Tap the stars to rate the wash'), tone: 'danger' });
     setBusy(true);
     setMessage(null);
     try {
       onSaved(await api.reviewWash({ subscriptionId: detail.subscriptionId, date: detail.date, rating, comment: comment.trim() }));
-      setMessage({ text: 'Thanks for your feedback!', tone: 'success' });
+      setMessage({ text: t('Thanks for your feedback!'), tone: 'success' });
     } catch (e) {
-      setMessage({ text: e instanceof Error ? e.message : 'Could not save', tone: 'danger' });
+      setMessage({ text: e instanceof Error ? e.message : t('Could not save'), tone: 'danger' });
     } finally {
       setBusy(false);
     }
@@ -254,18 +258,18 @@ function ReviewBox({ detail, onSaved }: { detail: WashDetail; onSaved: (r: WashD
 
   return (
     <Card style={{ gap: Spacing.md }}>
-      <SectionTitle hint="Your rating helps us keep every wash spotless.">{detail.review ? 'Your rating' : 'Rate this wash'}</SectionTitle>
+      <SectionTitle hint={t('Your rating helps us keep every wash spotless.')}>{detail.review ? t('Your rating') : t('Rate this wash')}</SectionTitle>
       <Stars value={rating} onChange={setRating} size={32} />
       <TextField
-        label="Comment (optional)"
+        label={t('Comment (optional)')}
         value={comment}
         onChangeText={setComment}
         multiline
-        placeholder="How was it?"
+        placeholder={t('How was it?')}
         style={{ minHeight: 80, paddingTop: Spacing.md, textAlignVertical: 'top' }}
       />
       {message ? <Banner message={message.text} tone={message.tone} /> : null}
-      <Button title={detail.review ? 'Update rating' : 'Send rating'} loading={busy} onPress={save} />
+      <Button title={detail.review ? t('Update rating') : t('Send rating')} loading={busy} onPress={save} />
     </Card>
   );
 }

@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { confirm } from '@/lib/confirm';
 import type { CarInput } from '@/lib/types';
+import { useI18n } from '@/lib/i18n';
 
 const COLORS = ['White', 'Black', 'Silver', 'Gray', 'Blue', 'Red'];
 const FLOORS = ['B1', 'B2', 'B3', 'B4'];
@@ -39,6 +40,7 @@ function normalizeTime(v: string) {
 export default function CarFormScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const { t } = useI18n();
   const isNew = id === 'new';
   const [form, setForm] = useState<CarInput>(EMPTY);
   const [loading, setLoading] = useState(!isNew);
@@ -52,18 +54,18 @@ export default function CarFormScreen() {
       .myCars()
       .then((cars) => {
         const car = cars.find((c) => c.id === id);
-        if (!car) throw new Error('Car not found');
+        if (!car) throw new Error(t('Car not found'));
         const { id: _id, ownerId: _owner, ...rest } = car;
         setForm(rest);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load car'))
+      .catch((e) => setError(e instanceof Error ? e.message : t('Could not load car')))
       .finally(() => setLoading(false));
-  }, [id, isNew]);
+  }, [id, isNew, t]);
 
   if (!user) {
     return (
       <Screen>
-        <Button title="Log in to add a car" onPress={() => router.replace({ pathname: '/login', params: { next: '/car/new' } })} />
+        <Button title={t('Log in to add a car')} onPress={() => router.replace({ pathname: '/login', params: { next: '/car/new' } })} />
       </Screen>
     );
   }
@@ -73,14 +75,14 @@ export default function CarFormScreen() {
 
   const validate = (data: CarInput) => {
     const e: Errors = {};
-    if (!data.plateNumber.trim()) e.plateNumber = 'Enter the plate number';
-    if (!data.brand.trim()) e.brand = 'Enter the brand';
-    if (!data.model.trim()) e.model = 'Enter the model';
-    if (!data.color.trim()) e.color = 'Choose or type a color';
-    if (!data.buildingNumber.trim()) e.buildingNumber = 'Enter the building number';
-    if (!data.parkingFloor.trim()) e.parkingFloor = 'Choose the parking floor';
-    if (!TIME_RE.test(data.arrivesHomeAt)) e.arrivesHomeAt = 'Use a time like 19:00';
-    if (!TIME_RE.test(data.leavesForWorkAt)) e.leavesForWorkAt = 'Use a time like 07:30';
+    if (!data.plateNumber.trim()) e.plateNumber = t('Enter the plate number');
+    if (!data.brand.trim()) e.brand = t('Enter the brand');
+    if (!data.model.trim()) e.model = t('Enter the model');
+    if (!data.color.trim()) e.color = t('Choose or type a color');
+    if (!data.buildingNumber.trim()) e.buildingNumber = t('Enter the building number');
+    if (!data.parkingFloor.trim()) e.parkingFloor = t('Choose the parking floor');
+    if (!TIME_RE.test(data.arrivesHomeAt)) e.arrivesHomeAt = t('Use a time like 19:00');
+    if (!TIME_RE.test(data.leavesForWorkAt)) e.leavesForWorkAt = t('Use a time like 07:30');
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -105,21 +107,21 @@ export default function CarFormScreen() {
         router.back();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save the car');
+      setError(e instanceof Error ? e.message : t('Could not save the car'));
     } finally {
       setBusy(false);
     }
   };
 
   const remove = async () => {
-    if (!(await confirm('Remove car?', `${form.plateNumber} will be removed from your account.`, 'Remove'))) return;
+    if (!(await confirm(t('Remove car?'), t('{plate} will be removed from your account.', { plate: form.plateNumber }), t('Remove')))) return;
     setBusy(true);
     setError(null);
     try {
       await api.deleteCar(id);
       router.back();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not remove the car');
+      setError(e instanceof Error ? e.message : t('Could not remove the car'));
     } finally {
       setBusy(false);
     }
@@ -128,12 +130,12 @@ export default function CarFormScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Screen contentStyle={{ maxWidth: 640 }}>
-        <Stack.Screen options={{ title: isNew ? 'Add a car' : 'Edit car' }} />
+        <Stack.Screen options={{ title: isNew ? t('Add a car') : t('Edit car') }} />
         {error ? <Banner message={error} /> : null}
 
-        <SectionTitle>Car</SectionTitle>
+        <SectionTitle>{t('Car')}</SectionTitle>
         <TextField
-          label="Plate number"
+          label={t('Plate number')}
           value={form.plateNumber}
           onChangeText={set('plateNumber')}
           placeholder="12가 3456"
@@ -141,22 +143,22 @@ export default function CarFormScreen() {
           error={errors.plateNumber}
         />
         <Row>
-          <TextField label="Brand" value={form.brand} onChangeText={set('brand')} placeholder="Hyundai" error={errors.brand} />
-          <TextField label="Model" value={form.model} onChangeText={set('model')} placeholder="Avante" error={errors.model} />
+          <TextField label={t('Brand')} value={form.brand} onChangeText={set('brand')} placeholder={t('Hyundai')} error={errors.brand} />
+          <TextField label={t('Model')} value={form.model} onChangeText={set('model')} placeholder={t('Avante')} error={errors.model} />
         </Row>
         <View style={{ gap: Spacing.sm }}>
-          <TextField label="Color" value={form.color} onChangeText={set('color')} placeholder="White" error={errors.color} />
+          <TextField label={t('Color')} value={form.color} onChangeText={set('color')} placeholder={t('White')} error={errors.color} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
             {COLORS.map((c) => (
-              <Chip key={c} label={c} selected={form.color === c} onPress={() => set('color')(c)} />
+              <Chip key={c} label={t(c)} selected={form.color === t(c)} onPress={() => set('color')(t(c))} />
             ))}
           </View>
         </View>
 
-        <SectionTitle hint={`In ${user.apartmentName}`}>Parking spot</SectionTitle>
+        <SectionTitle hint={t('In {apartment}', { apartment: user.apartmentName })}>{t('Parking spot')}</SectionTitle>
         <Row>
           <TextField
-            label="Building number"
+            label={t('Building number')}
             value={form.buildingNumber}
             onChangeText={set('buildingNumber')}
             placeholder="101"
@@ -164,7 +166,7 @@ export default function CarFormScreen() {
             error={errors.buildingNumber}
           />
           <TextField
-            label="Parking floor"
+            label={t('Parking floor')}
             value={form.parkingFloor}
             onChangeText={set('parkingFloor')}
             placeholder="B2"
@@ -178,10 +180,10 @@ export default function CarFormScreen() {
           ))}
         </View>
 
-        <SectionTitle hint="We wash while the car is parked at home.">Daily routine</SectionTitle>
+        <SectionTitle hint={t('We wash while the car is parked at home.')}>{t('Daily routine')}</SectionTitle>
         <Row>
           <TextField
-            label="Arrives home at"
+            label={t('Arrives home at')}
             value={form.arrivesHomeAt}
             onChangeText={set('arrivesHomeAt')}
             placeholder="19:00"
@@ -189,7 +191,7 @@ export default function CarFormScreen() {
             error={errors.arrivesHomeAt}
           />
           <TextField
-            label="Leaves for work at"
+            label={t('Leaves for work at')}
             value={form.leavesForWorkAt}
             onChangeText={set('leavesForWorkAt')}
             placeholder="07:30"
@@ -198,11 +200,11 @@ export default function CarFormScreen() {
           />
         </Row>
 
-        <Button title={isNew ? 'Save and choose a plan' : 'Save changes'} loading={busy} onPress={save} />
-        {!isNew ? <Button title="Remove car" variant="danger" icon="trash-outline" disabled={busy} onPress={remove} /> : null}
+        <Button title={isNew ? t('Save and choose a plan') : t('Save changes')} loading={busy} onPress={save} />
+        {!isNew ? <Button title={t('Remove car')} variant="danger" icon="trash-outline" disabled={busy} onPress={remove} /> : null}
         {isNew ? (
           <AppText variant="caption" style={{ textAlign: 'center' }}>
-            You can add more cars later from My cars.
+            {t('You can add more cars later from My cars.')}
           </AppText>
         ) : null}
       </Screen>

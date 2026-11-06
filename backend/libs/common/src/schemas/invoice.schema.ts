@@ -15,6 +15,21 @@ export class InvoiceLine {
   /** KRW */
   @Prop({ required: true })
   amount: number;
+
+  @Prop({ type: String, enum: ['plan', 'extra'] })
+  kind?: 'plan' | 'extra';
+
+  /** Tariff or extra service name. */
+  @Prop()
+  name?: string;
+
+  /** Washes billed. */
+  @Prop()
+  washes?: number;
+
+  /** Washes in a full month (plan line). */
+  @Prop()
+  washesPerMonth?: number;
 }
 
 /** One car's bill for one month. Payment is collected outside the app and marked by an admin. */

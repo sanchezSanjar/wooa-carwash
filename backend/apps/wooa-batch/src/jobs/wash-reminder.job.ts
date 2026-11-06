@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { addDays, today } from '@app/common/dates';
+import type { Lang } from '@app/common/i18n';
 import { NotificationText } from '@app/common/notify';
 import { washesForDate } from '@app/common/planner';
 import { CarDocument } from '@app/common/schemas/car.schema';
@@ -30,6 +31,7 @@ export class WashReminderJob {
     const subs = await this.subs
       .find({ _id: { $in: rows.map((r) => r.subscription) }, status: SubscriptionStatus.Active })
       .populate('car')
+      .populate('member', 'language')
       .exec();
     const byId = new Map(subs.map((s) => [s.id as string, s]));
 
@@ -38,10 +40,12 @@ export class WashReminderJob {
       const sub = byId.get(row.subscription.toString());
       const car = sub?.car as unknown as CarDocument | null;
       if (!sub || !car) continue;
-      const text = NotificationText.reminder(car, tomorrow, sub.extras.map((e) => e.name));
+      const member = sub.member as unknown as { _id: Types.ObjectId; language?: Lang } | null;
+      if (!member) continue;
+      const text = NotificationText.reminder(car, tomorrow, sub.extras.map((e) => e.name), member.language ?? 'ko');
       const res = await this.notifications.updateOne(
         { subscription: sub._id, date: row.scheduledDate, type: NotificationType.WashReminder },
-        { $setOnInsert: { member: sub.member, ...text, read: false } },
+        { $setOnInsert: { member: member._id, ...text, read: false } },
         { upsert: true },
       );
       if (res.upsertedCount) created++;

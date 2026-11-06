@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import bcrypt from 'bcryptjs';
 import { isValidObjectId, Model } from 'mongoose';
 import { MemberStatus, Role } from '@app/common/enums';
+import type { Lang } from '@app/common/i18n';
 import { formatPhone, normalizePhone } from '@app/common/phone';
 import { User, UserDocument } from '@app/common/schemas/user.schema';
 import { SmsService } from '@app/common/sms/sms.service';
@@ -16,6 +17,7 @@ export interface PublicUser {
   apartmentName: string;
   role: Role;
   status: MemberStatus;
+  language: Lang;
   hasPassword?: boolean;
 }
 
@@ -89,6 +91,7 @@ export class UsersService {
         email: dto.email?.trim().toLowerCase() || undefined,
         apartmentName: dto.apartmentName.trim(),
         role: dto.role ?? Role.Customer,
+        language: dto.language ?? 'ko',
         passwordHash: dto.password ? await bcrypt.hash(dto.password, 10) : undefined,
       });
     } catch (err: any) {
@@ -99,8 +102,11 @@ export class UsersService {
       await this.sms
         .send(
           phone,
-          `[Wooa Carwash] An account was created for ${formatPhone(phone)}. ` +
-            'Open the Wooa Carwash app, tap "Forgot password" and set your password with an SMS code.',
+          user.language === 'en'
+            ? `[Wooa Carwash] An account was created for ${formatPhone(phone)}. ` +
+                'Open the Wooa Carwash app, tap "Forgot password" and set your password with an SMS code.'
+            : `[Wooa Carwash] ${formatPhone(phone)} 번호로 계정이 만들어졌습니다. ` +
+                'Wooa Carwash 앱에서 "비밀번호 찾기"를 누르고 문자 인증번호로 비밀번호를 설정해 주세요.',
         )
         .catch(() => undefined); // the account exists either way; the admin can tell the member
     }
@@ -129,6 +135,7 @@ export class UsersService {
     if (dto.name !== undefined) user.name = dto.name.trim();
     if (dto.apartmentName !== undefined) user.apartmentName = dto.apartmentName.trim();
     if (dto.email !== undefined) user.email = dto.email.trim().toLowerCase() || undefined;
+    if (dto.language !== undefined) user.language = dto.language;
   }
 
   private async save(user: UserDocument): Promise<UserDocument> {
@@ -149,6 +156,7 @@ export class UsersService {
       apartmentName: user.apartmentName,
       role: user.role,
       status: user.status,
+      language: user.language ?? 'ko',
       ...(withPasswordFlag && { hasPassword: !!user.passwordHash }),
     };
   }

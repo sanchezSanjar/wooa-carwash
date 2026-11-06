@@ -2,17 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
 import { Spacing, useTheme } from '@/constants/theme';
-import { formatKRW } from '@/lib/format';
 import type { Extra, Tariff } from '@/lib/types';
 
 import { AppText, Badge, Button, Card } from './ui';
+import { useI18n } from '@/lib/i18n';
 
 /** The plan most customers pick gets a tag. */
 const POPULAR_WASHES = 4;
 
 export function TariffCards({
   tariffs,
-  actionLabel = 'Choose this plan',
+  actionLabel,
   onChoose,
 }: {
   tariffs: Tariff[];
@@ -20,30 +20,31 @@ export function TariffCards({
   onChoose?: (t: Tariff) => void;
 }) {
   const theme = useTheme();
+  const { t: tr, fmt } = useI18n();
   return (
     <View style={styles.grid}>
       {tariffs.map((t) => (
         <Card key={t.id} style={styles.card}>
           <View style={styles.head}>
             <View style={{ flex: 1, gap: Spacing.xs }}>
-              <AppText variant="heading">{t.name}</AppText>
-              {t.washesPerMonth === POPULAR_WASHES ? <Badge label="Most popular" tone="success" /> : null}
+              <AppText variant="heading">{fmt.name(t.name)}</AppText>
+              {t.washesPerMonth === POPULAR_WASHES ? <Badge label={tr('Most popular')} tone="success" /> : null}
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <AppText variant="heading" style={{ fontSize: 22, lineHeight: 28 }}>
-                {formatKRW(t.price)}
+                {fmt.krw(t.price)}
               </AppText>
-              <AppText variant="caption">per month</AppText>
+              <AppText variant="caption">{tr('per month')}</AppText>
             </View>
           </View>
           <View style={styles.line}>
             <Ionicons name="water-outline" size={15} color={theme.textSecondary} />
-            <AppText variant="label">{t.washesPerMonth} washes a month</AppText>
+            <AppText variant="label">{tr('{n} washes a month', { n: t.washesPerMonth })}</AppText>
           </View>
           <AppText variant="caption" style={{ flex: 1 }}>
-            {t.description}
+            {tr(t.description)}
           </AppText>
-          {onChoose ? <Button title={actionLabel} onPress={() => onChoose(t)} style={{ marginTop: Spacing.sm }} /> : null}
+          {onChoose ? <Button title={actionLabel ?? tr('Choose this plan')} onPress={() => onChoose(t)} style={{ marginTop: Spacing.sm }} /> : null}
         </Card>
       ))}
     </View>
@@ -52,6 +53,7 @@ export function TariffCards({
 
 export function ExtrasList({ extras }: { extras: Extra[] }) {
   const theme = useTheme();
+  const { t, fmt } = useI18n();
   return (
     <Card style={{ gap: 0, paddingVertical: Spacing.sm }}>
       {extras.map((e, i) => (
@@ -62,11 +64,11 @@ export function ExtrasList({ extras }: { extras: Extra[] }) {
             i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
           ]}>
           <View style={{ flex: 1 }}>
-            <AppText variant="label">{e.name}</AppText>
-            {e.description ? <AppText variant="caption">{e.description}</AppText> : null}
+            <AppText variant="label">{fmt.name(e.name)}</AppText>
+            {e.description ? <AppText variant="caption">{t(e.description)}</AppText> : null}
           </View>
-          <AppText variant="label">+{formatKRW(e.price)}</AppText>
-          <AppText variant="caption">/ wash</AppText>
+          <AppText variant="label">+{fmt.krw(e.price)}</AppText>
+          <AppText variant="caption">{t('/ wash')}</AppText>
         </View>
       ))}
     </Card>

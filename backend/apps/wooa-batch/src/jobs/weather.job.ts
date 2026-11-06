@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { addDays, today } from '@app/common/dates';
-import { NotificationText } from '@app/common/notify';
+import { NotificationText, smsText } from '@app/common/notify';
 import { washesForDate } from '@app/common/planner';
 import { CarDocument } from '@app/common/schemas/car.schema';
 import { DaySheet } from '@app/common/schemas/daysheet.schema';
@@ -79,7 +79,7 @@ export class WeatherJob {
     const subs = await this.subs
       .find({ _id: { $in: rows.map((r) => r.subscription) } })
       .populate('car', 'plateNumber')
-      .populate('member', 'phone apartmentName')
+      .populate('member', 'phone apartmentName language')
       .exec();
     const byId = new Map(subs.map((s) => [s.id as string, s]));
 
@@ -92,7 +92,7 @@ export class WeatherJob {
       const forecast = forecasts.get(gridFor(this.grids, member.apartmentName));
       if (!forecast || !isWet({ pop: forecast.pop, precipitation: forecast.precipitation as never }, this.threshold)) continue;
 
-      const text = NotificationText.weather(car, tomorrow, forecast);
+      const text = NotificationText.weather(car, tomorrow, forecast, member.language ?? 'ko');
       const res = await this.notifications.updateOne(
         { subscription: sub._id, date: row.scheduledDate, type: NotificationType.WeatherAlert },
         { $setOnInsert: { member: member._id, ...text, read: false } },
@@ -101,7 +101,7 @@ export class WeatherJob {
       if (!res.upsertedCount) continue;
       alerted++;
       if (this.sendSms && member.phone) {
-        await this.sms.send(member.phone, `[Wooa Carwash] ${text.body}`).catch(() => undefined);
+        await this.sms.send(member.phone, smsText(text)).catch(() => undefined);
       }
     }
     return alerted;

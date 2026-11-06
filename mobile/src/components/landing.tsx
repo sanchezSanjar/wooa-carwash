@@ -4,11 +4,11 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Radius, Spacing, useTheme } from '@/constants/theme';
-import { formatKRW } from '@/lib/format';
 import type { Extra, Tariff } from '@/lib/types';
 
 import { ExtrasList, TariffCards } from './plans';
 import { AppText, Button, Card } from './ui';
+import { useI18n } from '@/lib/i18n';
 
 const STEPS = [
   {
@@ -50,29 +50,31 @@ const FAQ = [
 
 export function Landing({ tariffs, extras }: { tariffs: Tariff[]; extras: Extra[] }) {
   const theme = useTheme();
-  const from = tariffs.length ? Math.min(...tariffs.map((t) => t.price)) : null;
+  const { t, fmt } = useI18n();
+  const from = tariffs.length ? Math.min(...tariffs.map((x) => x.price)) : null;
 
   return (
     <View style={{ gap: Spacing.xxl * 1.5 }}>
       {/* Hero */}
       <View style={{ gap: Spacing.lg, paddingTop: Spacing.lg }}>
         <AppText variant="display" style={styles.headline}>
-          Your car washed in your own apartment parking.
+          {t('Your car washed in your own apartment parking.')}
         </AppText>
         <AppText style={styles.lead} color={theme.textSecondary}>
-          A monthly plan on the days you choose. We clean the car while it is parked at home
-          {from !== null ? `, from ${formatKRW(from)} a month.` : '.'}
+          {from !== null
+            ? t('A monthly plan on the days you choose. We clean the car while it is parked at home, from {price} a month.', { price: fmt.krw(from) })
+            : t('A monthly plan on the days you choose. We clean the car while it is parked at home.')}
         </AppText>
         <View style={styles.row}>
-          <Button title="Get started" onPress={() => router.push('/register')} />
-          <Button title="Log in" variant="secondary" onPress={() => router.push('/login')} />
+          <Button title={t('Get started')} onPress={() => router.push('/register')} />
+          <Button title={t('Log in')} variant="secondary" onPress={() => router.push('/login')} />
         </View>
       </View>
 
       {/* Plans */}
       <View style={{ gap: Spacing.lg }}>
         <TariffCards tariffs={tariffs} onChoose={() => router.push('/register')} />
-        <AppText variant="caption">Prices are per car. Extras are added to every wash of the car you choose.</AppText>
+        <AppText variant="caption">{t('Prices are per car. Extras are added to every wash of the car you choose.')}</AppText>
       </View>
 
       {/* Promise strip */}
@@ -85,7 +87,7 @@ export function Landing({ tariffs, extras }: { tariffs: Tariff[]; extras: Extra[
         ].map(([icon, label]) => (
           <View key={label} style={styles.promise}>
             <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={theme.text} />
-            <AppText variant="label">{label}</AppText>
+            <AppText variant="label">{t(label)}</AppText>
           </View>
         ))}
       </View>
@@ -93,8 +95,8 @@ export function Landing({ tariffs, extras }: { tariffs: Tariff[]; extras: Extra[
       {/* How it works */}
       <View style={{ gap: Spacing.xl }}>
         <View style={{ gap: Spacing.xs }}>
-          <AppText variant="caption">How it works</AppText>
-          <AppText variant="title">Set it up once. Clean car every week.</AppText>
+          <AppText variant="caption">{t('How it works')}</AppText>
+          <AppText variant="title">{t('Set it up once. Clean car every week.')}</AppText>
         </View>
         <View style={styles.steps}>
           {STEPS.map((s, i) => (
@@ -102,8 +104,8 @@ export function Landing({ tariffs, extras }: { tariffs: Tariff[]; extras: Extra[
               <View style={[styles.stepNum, { borderColor: theme.text }]}>
                 <AppText variant="label">{i + 1}</AppText>
               </View>
-              <AppText variant="heading">{s.title}</AppText>
-              <AppText color={theme.textSecondary}>{s.text}</AppText>
+              <AppText variant="heading">{t(s.title)}</AppText>
+              <AppText color={theme.textSecondary}>{t(s.text)}</AppText>
             </View>
           ))}
         </View>
@@ -112,18 +114,18 @@ export function Landing({ tariffs, extras }: { tariffs: Tariff[]; extras: Extra[
       {/* Extras */}
       <View style={{ gap: Spacing.lg }}>
         <View style={{ gap: Spacing.xs }}>
-          <AppText variant="caption">Extras</AppText>
-          <AppText variant="title">Add more to every wash.</AppText>
+          <AppText variant="caption">{t('Extras')}</AppText>
+          <AppText variant="title">{t('Add more to every wash.')}</AppText>
         </View>
         <ExtrasList extras={extras} />
       </View>
 
       {/* FAQ */}
       <View style={{ gap: Spacing.lg }}>
-        <AppText variant="title">Quick answers</AppText>
+        <AppText variant="title">{t('Quick answers')}</AppText>
         <View style={[styles.faq, { borderTopColor: theme.border }]}>
           {FAQ.map((f) => (
-            <FaqItem key={f.q} q={f.q} a={f.a} />
+            <FaqItem key={f.q} q={t(f.q)} a={t(f.a)} />
           ))}
         </View>
       </View>
@@ -131,12 +133,12 @@ export function Landing({ tariffs, extras }: { tariffs: Tariff[]; extras: Extra[
       {/* Closing CTA */}
       <Card style={[styles.cta, { backgroundColor: theme.surface, borderColor: theme.surface }]}>
         <AppText variant="title" style={{ textAlign: 'center' }}>
-          {from !== null ? `Start your plan, from ${formatKRW(from)} a month` : 'Start your plan'}
+          {from !== null ? t('Start your plan, from {price} a month', { price: fmt.krw(from) }) : t('Start your plan')}
         </AppText>
         <AppText variant="caption" style={{ textAlign: 'center' }}>
-          Add your car and choose your days in a couple of minutes.
+          {t('Add your car and choose your days in a couple of minutes.')}
         </AppText>
-        <Button title="Get started" onPress={() => router.push('/register')} style={{ alignSelf: 'center', minWidth: 200 }} />
+        <Button title={t('Get started')} onPress={() => router.push('/register')} style={{ alignSelf: 'center', minWidth: 200 }} />
       </Card>
     </View>
   );

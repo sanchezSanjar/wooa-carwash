@@ -7,8 +7,8 @@ import { AppText, Banner, Button } from '@/components/ui';
 import { Radius, Spacing, useTheme } from '@/constants/theme';
 import { api, XLSX_TYPE } from '@/lib/api';
 import { downloadFromApi } from '@/lib/download';
-import { formatDay } from '@/lib/format';
 import type { SheetImportPreview } from '@/lib/types';
+import { useI18n } from '@/lib/i18n';
 
 const RANGES = [
   { days: 1, label: 'This day' },
@@ -32,6 +32,7 @@ const CHANGE_ICON: Record<ChangeType, keyof typeof Ionicons.glyphMap> = {
  */
 export function SheetExcel({ date, onImported }: { date: string; onImported: () => void }) {
   const theme = useTheme();
+  const { t, fmt } = useI18n();
   const [choosing, setChoosing] = useState(false);
   const [busy, setBusy] = useState<'export' | 'import' | 'apply' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +47,7 @@ export function SheetExcel({ date, onImported }: { date: string; onImported: () 
       const name = `wooa-daysheet-${date}${days > 1 ? `-${days}days` : ''}.xlsx`;
       await downloadFromApi(`/daysheets/export?from=${date}&days=${days}`, name, XLSX_TYPE);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not export');
+      setError(e instanceof Error ? e.message : t('Could not export'));
     } finally {
       setBusy(null);
     }
@@ -68,7 +69,7 @@ export function SheetExcel({ date, onImported }: { date: string; onImported: () 
         await api.previewSheetImport({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType ?? undefined, file: asset.file ?? undefined }),
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not read the file');
+      setError(e instanceof Error ? e.message : t('Could not read the file'));
     } finally {
       setBusy(null);
     }
@@ -81,10 +82,10 @@ export function SheetExcel({ date, onImported }: { date: string; onImported: () 
     try {
       const res = await api.applySheetImport(preview.plan);
       setPreview(null);
-      setDone(res.saved.length ? `Saved ${res.saved.map(formatDay).join(', ')}` : 'Nothing to change');
+      setDone(res.saved.length ? t('Saved {days}', { days: res.saved.map(fmt.day).join(', ') }) : t('Nothing to change'));
       onImported();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not apply the import');
+      setError(e instanceof Error ? e.message : t('Could not apply the import'));
     } finally {
       setBusy(null);
     }
@@ -92,8 +93,8 @@ export function SheetExcel({ date, onImported }: { date: string; onImported: () 
 
   return (
     <>
-      <Button title="Export to Excel" variant="secondary" icon="download-outline" loading={busy === 'export'} onPress={() => setChoosing(true)} />
-      <Button title="Import from Excel" variant="secondary" icon="cloud-upload-outline" loading={busy === 'import'} onPress={importFile} />
+      <Button title={t('Export to Excel')} variant="secondary" icon="download-outline" loading={busy === 'export'} onPress={() => setChoosing(true)} />
+      <Button title={t('Import from Excel')} variant="secondary" icon="cloud-upload-outline" loading={busy === 'import'} onPress={importFile} />
       {error && !preview ? (
         <View style={{ width: '100%' }}>
           <Banner message={error} />
@@ -108,11 +109,11 @@ export function SheetExcel({ date, onImported }: { date: string; onImported: () 
       <Modal visible={choosing} transparent animationType="fade" onRequestClose={() => setChoosing(false)}>
         <Pressable style={styles.backdrop} onPress={() => setChoosing(false)}>
           <Pressable style={[styles.dialog, { backgroundColor: theme.card, maxWidth: 380 }]} onPress={() => undefined}>
-            <AppText variant="heading">Export to Excel</AppText>
-            <AppText variant="caption">One tab per day, starting {formatDay(date)}. Edit the yellow columns and import the file again.</AppText>
+            <AppText variant="heading">{t('Export to Excel')}</AppText>
+            <AppText variant="caption">{t('One tab per day, starting {date}. Edit the yellow columns and import the file again.', { date: fmt.day(date) })}</AppText>
             {RANGES.map((r) => (
               <Pressable key={r.days} onPress={() => exportDays(r.days)} style={({ pressed }) => [styles.option, { backgroundColor: pressed ? theme.muted : 'transparent' }]}>
-                <AppText variant="label">{r.label}</AppText>
+                <AppText variant="label">{t(r.label)}</AppText>
               </Pressable>
             ))}
           </Pressable>
@@ -127,20 +128,20 @@ export function SheetExcel({ date, onImported }: { date: string; onImported: () 
                 <View style={styles.head}>
                   <Ionicons name="document-outline" size={22} color={theme.success} />
                   <View style={{ flex: 1 }}>
-                    <AppText variant="heading">Import day sheet</AppText>
+                    <AppText variant="heading">{t('Import day sheet')}</AppText>
                     <AppText variant="caption">
-                      {preview.filename ?? 'Workbook'} · {preview.rowsRead} rows · {preview.days.map(formatDay).join(', ')}
+                      {preview.filename ?? t('Workbook')} · {t('{n} rows', { n: preview.rowsRead })} · {preview.days.map(fmt.day).join(', ')}
                     </AppText>
                   </View>
-                  <Pressable onPress={() => setPreview(null)} accessibilityLabel="Close">
+                  <Pressable onPress={() => setPreview(null)} accessibilityLabel={t('Close')}>
                     <Ionicons name="close" size={22} color={theme.text} />
                   </Pressable>
                 </View>
 
                 <View style={styles.stats}>
-                  <Stat label="Unchanged" value={preview.unchanged} bg={theme.surface} fg={theme.text} />
-                  <Stat label="Changes" value={preview.changes.length} bg={theme.primarySoft} fg={theme.text} />
-                  <Stat label="Problems" value={preview.problems.length} bg={preview.problems.length ? theme.dangerSoft : theme.surface} fg={preview.problems.length ? theme.danger : theme.text} />
+                  <Stat label={t('Unchanged')} value={preview.unchanged} bg={theme.surface} fg={theme.text} />
+                  <Stat label={t('Changes')} value={preview.changes.length} bg={theme.primarySoft} fg={theme.text} />
+                  <Stat label={t('Problems')} value={preview.problems.length} bg={preview.problems.length ? theme.dangerSoft : theme.surface} fg={preview.problems.length ? theme.danger : theme.text} />
                 </View>
 
                 <ScrollView style={{ maxHeight: 340 }} contentContainerStyle={{ gap: 0 }}>
@@ -158,7 +159,7 @@ export function SheetExcel({ date, onImported }: { date: string; onImported: () 
                       <Ionicons name="warning-outline" size={18} color={theme.danger} />
                       <AppText style={{ flex: 1 }}>
                         <AppText variant="label" color={theme.danger}>
-                          Row {p.row}
+                          {t('Row {row}', { row: p.row })}
                           {p.plateNumber ? `: ${p.plateNumber}` : ''}
                         </AppText>
                         <AppText variant="caption"> · {p.message}</AppText>
@@ -166,16 +167,16 @@ export function SheetExcel({ date, onImported }: { date: string; onImported: () 
                     </View>
                   ))}
                   {preview.changes.length === 0 && preview.problems.length === 0 ? (
-                    <AppText variant="caption">The file matches the day sheets. Nothing to change.</AppText>
+                    <AppText variant="caption">{t('The file matches the day sheets. Nothing to change.')}</AppText>
                   ) : null}
                 </ScrollView>
 
                 {error ? <Banner message={error} /> : null}
-                <AppText variant="caption">Only the day sheets change. Cars, members, plans and wash results stay as they are.</AppText>
+                <AppText variant="caption">{t('Only the day sheets change. Cars, members, plans and wash results stay as they are.')}</AppText>
                 <View style={styles.actions}>
-                  <Button title="Cancel" variant="secondary" onPress={() => setPreview(null)} />
+                  <Button title={t('Cancel')} variant="secondary" onPress={() => setPreview(null)} />
                   <Button
-                    title={preview.plan.length ? `Apply ${preview.changes.length} change${preview.changes.length === 1 ? '' : 's'}` : 'Nothing to apply'}
+                    title={preview.plan.length ? fmt.count(preview.changes.length, 'Apply {n} change', 'Apply {n} changes') : t('Nothing to apply')}
                     disabled={!preview.plan.length}
                     loading={busy === 'apply'}
                     onPress={apply}

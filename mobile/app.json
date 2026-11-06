@@ -46,6 +46,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "locales": {
+      "ko": "./locales/ko.json"
     }
   }
 }

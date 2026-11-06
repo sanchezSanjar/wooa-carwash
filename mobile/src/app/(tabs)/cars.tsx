@@ -8,19 +8,20 @@ import { Spacing } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { formatDay, formatKRW, scheduleSummary } from '@/lib/format';
+import { useI18n } from '@/lib/i18n';
 
 export default function CarsScreen() {
   const { user } = useAuth();
+  const { t } = useI18n();
   if (!user) {
     return (
       <Screen>
-        <AppText variant="title">My cars</AppText>
+        <AppText variant="title">{t('My cars')}</AppText>
         <EmptyState
           icon="car-sport-outline"
-          title="Log in to manage your cars"
+          title={t('Log in to manage your cars')}
           action={
-            <Button title="Log in" onPress={() => router.push({ pathname: '/login', params: { next: '/cars' } })} />
+            <Button title={t('Log in')} onPress={() => router.push({ pathname: '/login', params: { next: '/cars' } })} />
           }
         />
       </Screen>
@@ -30,6 +31,7 @@ export default function CarsScreen() {
 }
 
 function MyCars() {
+  const { t, fmt } = useI18n();
   const { data, error, loading, refreshing, refresh } = useApi(
     useCallback(async () => {
       const [cars, subs] = await Promise.all([api.myCars(), api.mySubscriptions()]);
@@ -40,16 +42,16 @@ function MyCars() {
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <AppText variant="title">My cars</AppText>
-        <Button title="Add car" icon="add" onPress={() => router.push('/car/new')} />
+        <AppText variant="title">{t('My cars')}</AppText>
+        <Button title={t('Add car')} icon="add" onPress={() => router.push('/car/new')} />
       </View>
       {error ? <Banner message={error} /> : null}
       {loading ? <Loading /> : null}
       {data && data.cars.length === 0 ? (
         <EmptyState
           icon="car-sport-outline"
-          title="No cars yet"
-          message="Add a car with its parking spot to choose a wash plan."
+          title={t('No cars yet')}
+          message={t('Add a car with its parking spot to choose a wash plan.')}
         />
       ) : null}
 
@@ -64,26 +66,26 @@ function MyCars() {
                 {sub ? (
                   <View style={{ gap: 2 }}>
                     <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
-                      <Badge label={`${sub.tariffName} · ${sub.washesPerMonth}×/month`} tone="success" />
-                      <AppText variant="label">{formatKRW(sub.monthlyPrice)} / month</AppText>
+                      <Badge label={t('{name} · {n}×/month', { name: fmt.name(sub.tariffName), n: sub.washesPerMonth })} tone="success" />
+                      <AppText variant="label">{t('{price} / month', { price: fmt.krw(sub.monthlyPrice) })}</AppText>
                     </View>
-                    <AppText variant="caption">{scheduleSummary(sub.schedule)}</AppText>
+                    <AppText variant="caption">{fmt.schedule(sub.schedule)}</AppText>
                     {sub.extras.length ? (
-                      <AppText variant="caption">Extras: {sub.extras.map((e) => e.name).join(', ')}</AppText>
+                      <AppText variant="caption">{t('Extras: {list}', { list: sub.extras.map((e) => fmt.name(e.name)).join(', ') })}</AppText>
                     ) : null}
-                    {sub.upcoming[0] ? <AppText variant="caption">Next wash: {formatDay(sub.upcoming[0])}</AppText> : null}
+                    {sub.upcoming[0] ? <AppText variant="caption">{t('Next wash: {date}', { date: fmt.day(sub.upcoming[0]) })}</AppText> : null}
                   </View>
                 ) : (
-                  <Badge label="No wash plan" tone="warning" />
+                  <Badge label={t('No wash plan')} tone="warning" />
                 )}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
                   <Button
-                    title={sub ? 'Manage plan' : 'Choose plan'}
+                    title={sub ? t('Manage plan') : t('Choose plan')}
                     icon="calendar-outline"
                     onPress={() => router.push({ pathname: '/plan/[carId]', params: { carId: car.id } })}
                   />
                   <Button
-                    title="Edit car"
+                    title={t('Edit car')}
                     variant="secondary"
                     icon="create-outline"
                     onPress={() => router.push({ pathname: '/car/[id]', params: { id: car.id } })}

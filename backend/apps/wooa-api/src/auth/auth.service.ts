@@ -1,3 +1,4 @@
+import type { Lang } from '@app/common/i18n';
 import {
   BadRequestException,
   ConflictException,
@@ -34,7 +35,7 @@ export class AuthService {
     return bcrypt.hash(password, 10);
   }
 
-  async register(dto: RegisterDto): Promise<AuthResponse> {
+  async register(dto: RegisterDto, language: Lang = 'ko'): Promise<AuthResponse> {
     const phone = normalizePhone(dto.phone);
     await this.otp.assertSignupVerified(phone);
     if (await this.users.findByPhoneWithPassword(phone)) {
@@ -49,6 +50,7 @@ export class AuthService {
         apartmentName: dto.apartmentName.trim(),
         passwordHash: await AuthService.hashPassword(dto.password),
         role: this.bootstrapRole(phone, dto.email),
+        language,
       });
     } catch (err: any) {
       if (err?.code === 11000) throw new ConflictException('This phone number or email already has an account');

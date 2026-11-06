@@ -4,7 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MaxContentWidth, Spacing, useTheme } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
+import { useI18n } from '@/lib/i18n';
 
+import { LanguageSwitch } from './language-switch';
 import { AppText, Button } from './ui';
 
 interface TabBarProps {
@@ -21,6 +23,7 @@ export function TopNav({ state, descriptors, navigation }: TabBarProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { t } = useI18n();
 
   return (
     <View style={[styles.bar, { paddingTop: insets.top, backgroundColor: theme.background, borderBottomColor: theme.border }]}>
@@ -51,7 +54,8 @@ export function TopNav({ state, descriptors, navigation }: TabBarProps) {
               </Pressable>
             );
           })}
-          {!user ? <Button title="Get started" onPress={() => router.push('/register')} style={styles.cta} /> : null}
+          <LanguageSwitch compact />
+          {!user ? <Button title={t('Get started')} onPress={() => router.push('/register')} style={styles.cta} /> : null}
         </View>
       </View>
     </View>

@@ -47,14 +47,15 @@ const lastCode = (phone: string) => {
 };
 
 /** Full SMS sign-up: request code → verify → register. */
-const register = async (name: string, phone: string, apartmentName = 'Raemian Gwanggyo') => {
-  await request(http).post('/auth/otp/request').send({ phone, purpose: 'signup' }).expect(200);
+const register = async (name: string, phone: string, apartmentName = 'Raemian Gwanggyo', headers: Record<string, string> = {}) => {
+  await request(http).post('/auth/otp/request').set(headers).send({ phone, purpose: 'signup' }).expect(200);
   await request(http)
     .post('/auth/otp/verify')
     .send({ phone, purpose: 'signup', code: lastCode(phone) })
     .expect(200);
   const res = await request(http)
     .post('/auth/register')
+    .set(headers)
     .send({ name, phone, password: 'password123', apartmentName })
     .expect(201);
   return res.body.accessToken as string;
@@ -124,6 +125,22 @@ describe('sms sign-up and login', () => {
     await request(http).post('/auth/login').send({ phone: '010-3333-4444', password: 'nope-nope' }).expect(401);
   });
 
+  it('answers in Korean when the app asks for it', async () => {
+    const ko = { 'Accept-Language': 'ko' };
+    await request(http).post('/auth/otp/request').set(ko).send({ phone: '010-2468-1357', purpose: 'signup' }).expect(200);
+    expect(sms.outbox.at(-1)?.text).toMatch(/^\[Wooa Carwash\] 인증번호는 \d{6}입니다/);
+
+    const wrong = await request(http).post('/auth/login').set(ko).send({ phone: '010-1111-2222', password: 'nope-nope' }).expect(401);
+    expect(wrong.body.message).toBe('전화번호 또는 비밀번호가 올바르지 않습니다');
+    const invalid = await request(http).post('/auth/login').set(ko).send({ phone: 'abc' }).expect(400);
+    expect(invalid.body.message[0]).toMatch(/[가-힣]/);
+    const english = await request(http).post('/auth/login').send({ phone: '010-1111-2222', password: 'nope-nope' }).expect(401);
+    expect(english.body.message).toBe('Wrong phone number or password');
+
+    const signedUp = await register('Park Seoyeon', '010-2468-9999', 'Hillstate', ko);
+    expect((await request(http).get('/auth/me').set(auth(signedUp)).expect(200)).body.language).toBe('ko');
+  });
+
   it('resets a forgotten password by SMS and logs out old sessions', async () => {
     const unknown = await request(http).post('/auth/otp/request').send({ phone: '010-7777-8888', purpose: 'reset' }).expect(200);
     const known = await request(http).post('/auth/otp/request').send({ phone: '010-3333-4444', purpose: 'reset' }).expect(200);
@@ -158,7 +175,7 @@ describe('members', () => {
       .send({ name: 'Park Washer', phone: '010-4444-5555', apartmentName: 'Wooa', role: 'washer' })
       .expect(201);
     expect(created.body).toMatchObject({ role: 'washer', hasPassword: false });
-    expect(sms.outbox.at(-1)?.text).toMatch(/Forgot password/);
+    expect(sms.outbox.at(-1)?.text).toMatch(/비밀번호 찾기/); // new members get Korean texts
 
     const list = await request(http).get('/members').query({ search: '4444' }).set(auth(admin)).expect(200);
     expect(list.body.map((m: { name: string }) => m.name)).toContain('Park Washer');
@@ -174,9 +191,10 @@ describe('members', () => {
     const res = await request(http)
       .patch('/members/me')
       .set(auth(kim))
-      .send({ apartmentName: 'Raemian Gwanggyo 2' })
+      .send({ apartmentName: 'Raemian Gwanggyo 2', language: 'en' })
       .expect(200);
-    expect(res.body.apartmentName).toBe('Raemian Gwanggyo 2');
+    expect(res.body).toMatchObject({ apartmentName: 'Raemian Gwanggyo 2', language: 'en' });
+    await request(http).patch('/members/me').set(auth(kim)).send({ language: 'fr' }).expect(400);
   });
 });
 
@@ -541,6 +559,38 @@ describe('day sheets', () => {
     const onNext = (await request(http).get(`/daysheets/${next}`).set(auth(admin))).body.rows.find((r: { subscriptionId: string }) => r.subscriptionId === leeSub);
     expect(onNext).toMatchObject({ moved: true, note: 'Bring ladder', washerName: 'Choi Washer', scheduledDate: day });
     expect((await request(http).get(`/daysheets/${day}`).set(auth(admin))).body.rows.some((r: { subscriptionId: string }) => r.subscriptionId === leeSub)).toBe(false);
+  });
+
+  it('exports and reads Korean workbooks', async () => {
+    const ko = { 'Accept-Language': 'ko-KR,ko;q=0.9' };
+    const exported = await request(http)
+      .get('/daysheets/export')
+      .query({ from: day, days: 1 })
+      .set(auth(admin))
+      .set(ko)
+      .buffer(true)
+      .parse((res, cb) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load(exported.body as unknown as ArrayBuffer);
+    const ws = book.worksheets[0];
+    expect(ws.name).toMatch(new RegExp(`^${day} [일월화수목금토]$`));
+    const header = (ws.getRow(1).values as string[]).slice(1);
+    expect(header.slice(0, 3)).toEqual(['순서', '날짜 (YYYY-MM-DD)', '차량 번호']);
+
+    ws.addRow(['99', day, '99마 0000']);
+    const edited = Buffer.from(await book.xlsx.writeBuffer());
+    const preview = await request(http).post('/daysheets/import/preview').set(auth(admin)).set(ko).attach('file', edited, 'ko.xlsx').expect(200);
+    expect(preview.body.problems).toEqual([expect.objectContaining({ plateNumber: '99마 0000', message: '이 번호로 이용 중인 차량이 없어 건너뜁니다' })]);
+    expect(preview.body.changes).toEqual([]);
+
+    // the same Korean file previews in English for an admin using English
+    const inEnglish = await request(http).post('/daysheets/import/preview').set(auth(admin)).attach('file', edited, 'ko.xlsx').expect(200);
+    expect(inEnglish.body.problems[0].message).toMatch(/No car/);
   });
 
   it('records the day a moved car was actually washed', async () => {

@@ -5,6 +5,7 @@ import { Platform, useWindowDimensions, type ColorValue } from 'react-native';
 import { TopNav } from '@/components/top-nav';
 import { useTheme } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
+import { useI18n } from '@/lib/i18n';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -17,6 +18,7 @@ function icon(name: IconName) {
 export default function TabsLayout() {
   const theme = useTheme();
   const { user } = useAuth();
+  const { t } = useI18n();
   const isStaff = user?.role === 'admin' || user?.role === 'washer';
   const { width } = useWindowDimensions();
   const wide = Platform.OS === 'web' && width >= 768;
@@ -31,13 +33,13 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: theme.textSecondary,
         tabBarStyle: { backgroundColor: theme.card, borderTopColor: theme.border },
       }}>
-      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: icon('water') }} />
-      <Tabs.Screen name="cars" options={{ title: 'My cars', tabBarIcon: icon('car') }} />
+      <Tabs.Screen name="index" options={{ title: t('Home'), tabBarIcon: icon('water') }} />
+      <Tabs.Screen name="cars" options={{ title: t('My cars'), tabBarIcon: icon('car') }} />
       <Tabs.Screen
         name="admin"
-        options={{ title: 'Manage', tabBarIcon: icon('briefcase'), href: isStaff ? undefined : null }}
+        options={{ title: t('Manage'), tabBarIcon: icon('briefcase'), href: isStaff ? undefined : null }}
       />
-      <Tabs.Screen name="account" options={{ title: 'Account', tabBarIcon: icon('person') }} />
+      <Tabs.Screen name="account" options={{ title: t('Account'), tabBarIcon: icon('person') }} />
     </Tabs>
   );
 }

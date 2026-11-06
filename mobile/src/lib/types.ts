@@ -1,6 +1,16 @@
 export type Role = 'customer' | 'washer' | 'admin';
 export type MemberStatus = 'active' | 'blocked';
 
+/** A bill line. Newer bills carry the parts so the app can word them in either language. */
+export interface InvoiceLine {
+  label: string;
+  amount: number;
+  kind?: 'plan' | 'extra' | null;
+  name?: string | null;
+  washes?: number | null;
+  washesPerMonth?: number | null;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -10,6 +20,8 @@ export interface User {
   apartmentName: string;
   role: Role;
   status: MemberStatus;
+  /** Language of the member's notifications and SMS. */
+  language?: 'ko' | 'en';
   hasPassword?: boolean;
 }
 
@@ -156,7 +168,14 @@ export interface DaySheet {
   date: string;
   saved: boolean;
   /** Forecast from the batch server (KMA), when available. */
-  weather: { summary: string; pop: number; wet: boolean } | null;
+  weather: {
+    summary: string;
+    pop: number;
+    precipitation?: string;
+    tempMin?: number | null;
+    tempMax?: number | null;
+    wet: boolean;
+  } | null;
   updatedAt: string | null;
   rows: DaySheetRow[];
 }
@@ -180,7 +199,7 @@ export interface Invoice {
   plateNumber: string;
   /** YYYY-MM */
   month: string;
-  lines: { label: string; amount: number }[];
+  lines: InvoiceLine[];
   amount: number;
   issueDate: string;
   dueDate: string;

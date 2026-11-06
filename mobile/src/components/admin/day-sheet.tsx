@@ -8,8 +8,9 @@ import { AppText, Badge, Banner, Button, Card, DateStrip, EmptyState, Loading } 
 import { Fonts, Radius, Spacing, useTheme } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { confirm } from '@/lib/confirm';
-import { formatDay, formatPhone, STATUS_LABEL, upcomingDates } from '@/lib/format';
+import { formatPhone, upcomingDates } from '@/lib/format';
 import type { DaySheet as Sheet, DaySheetRow, SheetCandidate, StaffMember, WashStatus } from '@/lib/types';
+import { useI18n } from '@/lib/i18n';
 
 const DAY_MS = 86_400_000;
 const keyOf = (r: { subscriptionId: string; scheduledDate: string }) => `${r.subscriptionId}|${r.scheduledDate}`;
@@ -35,6 +36,7 @@ export function DaySheetPanel({ isAdmin }: { isAdmin: boolean }) {
 
 function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: boolean; moveDates: string[] }) {
   const theme = useTheme();
+  const { t, fmt } = useI18n();
   const { width } = useWindowDimensions();
   const wide = width >= 960;
   const [sheet, setSheet] = useState<Sheet | null>(null);
@@ -62,12 +64,12 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
         accept(s);
         setError(null);
       })
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load the day sheet'));
+      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : t('Could not load the day sheet')));
     if (isAdmin) api.sheetStaff().then((s) => !cancelled && setStaff(s)).catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [date, isAdmin, accept, reloadKey]);
+  }, [date, isAdmin, accept, reloadKey, t]);
 
   const dirty = !!sheet && JSON.stringify(toSave(rows)) !== JSON.stringify(toSave(sheet.rows));
   const done = rows.filter((r) => r.status === 'done').length;
@@ -91,7 +93,7 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
     try {
       accept(await api.saveDaySheet(date, toSave(rows)));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save the sheet');
+      setError(e instanceof Error ? e.message : t('Could not save the sheet'));
     } finally {
       setSaving(false);
     }
@@ -106,14 +108,14 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
       patch(keyOf(row), change);
       setSheet((s) => s && { ...s, rows: s.rows.map((r) => (keyOf(r) === keyOf(row) ? { ...r, ...change } : r)) });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not update the wash');
+      setError(e instanceof Error ? e.message : t('Could not update the wash'));
     } finally {
       setBusyKey(null);
     }
   };
 
   const moveTo = async (row: DaySheetRow, toDate: string) => {
-    if (dirty && !(await confirm('Unsaved changes', 'Moving saves this sheet first. Save and move?', 'Save and move'))) return;
+    if (dirty && !(await confirm(t('Unsaved changes'), t('Moving saves this sheet first. Save and move?'), t('Save and move')))) return;
     setMoving(null);
     setBusyKey(keyOf(row));
     setError(null);
@@ -122,7 +124,7 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
       const res = await api.moveWash(date, { subscriptionId: row.subscriptionId, scheduledDate: row.scheduledDate, toDate });
       accept(res.from);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not move the car');
+      setError(e instanceof Error ? e.message : t('Could not move the car'));
     } finally {
       setBusyKey(null);
     }
@@ -150,18 +152,18 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
     <View style={{ gap: Spacing.md }}>
       <View style={styles.toolbar}>
         <View style={{ flex: 1, gap: 2, minWidth: 220 }}>
-          <AppText variant="heading">{formatDay(date)}</AppText>
+          <AppText variant="heading">{fmt.day(date)}</AppText>
           <AppText variant="caption">
-            {sheet?.saved ? 'Saved day sheet' : 'Draft from the schedule (not saved yet)'} · {rows.length} cars · {done} washed ·{' '}
-            {rows.length - done - skipped} left
+            {sheet?.saved ? t('Saved day sheet') : t('Draft from the schedule (not saved yet)')} ·{' '}
+            {t('{n} cars · {done} washed · {left} left', { n: rows.length, done, left: rows.length - done - skipped })}
           </AppText>
         </View>
         {isAdmin ? (
           <>
             <SheetExcel date={date} onImported={() => setReloadKey((k) => k + 1)} />
-            <Button title="Add car" variant="secondary" icon="add" onPress={() => setAdding(true)} />
-            {dirty ? <Button title="Discard" variant="ghost" onPress={() => sheet && setRows(sheet.rows)} /> : null}
-            <Button title={dirty ? 'Save sheet' : sheet?.saved ? 'Saved' : 'Save sheet'} icon="save-outline" disabled={!dirty && !!sheet?.saved} loading={saving} onPress={save} />
+            <Button title={t('Add car')} variant="secondary" icon="add" onPress={() => setAdding(true)} />
+            {dirty ? <Button title={t('Discard')} variant="ghost" onPress={() => sheet && setRows(sheet.rows)} /> : null}
+            <Button title={dirty ? t('Save sheet') : sheet?.saved ? t('Saved') : t('Save sheet')} icon="save-outline" disabled={!dirty && !!sheet?.saved} loading={saving} onPress={save} />
           </>
         ) : null}
       </View>
@@ -169,14 +171,14 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
         <View style={[styles.weather, { backgroundColor: sheet.weather.wet ? theme.warningSoft : theme.surface }]}>
           <Ionicons name={sheet.weather.wet ? 'rainy-outline' : 'partly-sunny-outline'} size={18} color={sheet.weather.wet ? theme.warning : theme.text} />
           <AppText variant="label" color={sheet.weather.wet ? theme.warning : theme.text} style={{ flex: 1 }}>
-            {sheet.weather.summary}
-            {sheet.weather.wet ? ' · members with a wash get a weather notice the evening before' : ''}
+            {fmt.weather(sheet.weather)}
+            {sheet.weather.wet ? t(' · members with a wash get a weather notice the evening before') : ''}
           </AppText>
         </View>
       ) : null}
-      {dirty ? <Banner tone="success" message="You have unsaved changes on this day sheet." /> : null}
+      {dirty ? <Banner tone="success" message={t('You have unsaved changes on this day sheet.')} /> : null}
       {error ? <Banner message={error} /> : null}
-      {rows.length === 0 ? <EmptyState icon="sunny-outline" title="No cars on this day" message={isAdmin ? 'Use “Add car” to bring in a car from another day.' : undefined} /> : null}
+      {rows.length === 0 ? <EmptyState icon="sunny-outline" title={t('No cars on this day')} message={isAdmin ? t('Use “Add car” to bring in a car from another day.') : undefined} /> : null}
 
       {wide && rows.length > 0 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator>
@@ -184,7 +186,7 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
             <View style={[styles.tr, styles.th, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               {COLUMNS.map((c) => (
                 <AppText key={c.key} variant="caption" style={[styles.cell, { width: c.width, fontWeight: '600' }]}>
-                  {c.label}
+                  {c.label ? t(c.label) : ''}
                 </AppText>
               ))}
             </View>
@@ -212,10 +214,10 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
                 </AppText>
                 <View style={[styles.cell, { width: COL.plan }]}>
                   <AppText variant="caption" numberOfLines={2}>
-                    {r.tariffName}
-                    {r.extras.length ? ` + ${r.extras.join(', ')}` : ''}
+                    {fmt.name(r.tariffName)}
+                    {r.extras.length ? ` + ${r.extras.map(fmt.name).join(', ')}` : ''}
                   </AppText>
-                  {r.moved ? <Badge label={`From ${formatDay(r.scheduledDate)}`} tone="warning" /> : null}
+                  {r.moved ? <Badge label={t('From {date}', { date: fmt.day(r.scheduledDate) })} tone="warning" /> : null}
                 </View>
                 <View style={[styles.cell, { width: COL.washer }]}>
                   <WasherCell row={r} editable={isAdmin} onPress={() => setAssigning(r)} />
@@ -241,21 +243,26 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
               <View style={{ flex: 1 }}>
                 <AppText variant="heading">{r.car.plateNumber}</AppText>
                 <AppText variant="caption">
-                  {r.car.color} {r.car.brand} {r.car.model} · Bldg {r.car.buildingNumber} · {r.car.parkingFloor}
+                  {r.car.color} {r.car.brand} {r.car.model} · {t('Bldg {building} · {floor}', { building: r.car.buildingNumber, floor: r.car.parkingFloor })}
                 </AppText>
               </View>
               <StatusBadge row={r} />
             </View>
             <AppText variant="caption">
-              {r.member.apartmentName} · parked {r.car.arrivesHomeAt} → {r.car.leavesForWorkAt} · {r.tariffName}
-              {r.extras.length ? ` + ${r.extras.join(', ')}` : ''}
+              {t('{apartment} · parked {from} → {to} · {plan}', {
+                apartment: r.member.apartmentName,
+                from: r.car.arrivesHomeAt,
+                to: r.car.leavesForWorkAt,
+                plan: fmt.name(r.tariffName),
+              })}
+              {r.extras.length ? ` + ${r.extras.map(fmt.name).join(', ')}` : ''}
             </AppText>
             <Pressable onPress={() => Linking.openURL(`tel:${r.member.phone}`)}>
               <AppText variant="caption">
                 {r.member.name} · {formatPhone(r.member.phone)}
               </AppText>
             </Pressable>
-            {r.moved ? <Badge label={`Moved from ${formatDay(r.scheduledDate)}`} tone="warning" /> : null}
+            {r.moved ? <Badge label={t('Moved from {date}', { date: fmt.day(r.scheduledDate) })} tone="warning" /> : null}
             <View style={styles.inline}>
               <WasherCell row={r} editable={isAdmin} onPress={() => setAssigning(r)} />
             </View>
@@ -266,18 +273,18 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
       )}
 
       {/* move to another day */}
-      <Picker visible={!!moving} title={`Move ${moving?.car.plateNumber ?? ''} to…`} onClose={() => setMoving(null)}>
+      <Picker visible={!!moving} title={t('Move {plate} to…', { plate: moving?.car.plateNumber ?? '' })} onClose={() => setMoving(null)}>
         {moveDates
           .filter((d) => d !== date)
           .map((d) => (
-            <PickerItem key={d} label={formatDay(d)} onPress={() => moving && moveTo(moving, d)} />
+            <PickerItem key={d} label={fmt.day(d)} onPress={() => moving && moveTo(moving, d)} />
           ))}
       </Picker>
 
       {/* assign a washer */}
-      <Picker visible={!!assigning} title="Assign washer" onClose={() => setAssigning(null)}>
+      <Picker visible={!!assigning} title={t('Assign washer')} onClose={() => setAssigning(null)}>
         <PickerItem
-          label="Nobody"
+          label={t('Nobody')}
           onPress={() => {
             if (assigning) patch(keyOf(assigning), { washerId: null, washerName: null });
             setAssigning(null);
@@ -286,7 +293,7 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
         {staff.map((s) => (
           <PickerItem
             key={s.id}
-            label={`${s.name}${s.role === 'admin' ? ' (admin)' : ''}`}
+            label={`${s.name}${s.role === 'admin' ? t(' (admin)') : ''}`}
             onPress={() => {
               if (assigning) patch(keyOf(assigning), { washerId: s.id, washerName: s.name });
               setAssigning(null);
@@ -323,9 +330,10 @@ const COLUMNS = [
 ];
 
 function StatusBadge({ row }: { row: DaySheetRow }) {
+  const { fmt } = useI18n();
   return (
     <Badge
-      label={STATUS_LABEL[row.status]}
+      label={fmt.status(row.status)}
       tone={row.status === 'done' ? 'success' : row.status === 'skipped' ? 'neutral' : 'warning'}
     />
   );
@@ -333,7 +341,8 @@ function StatusBadge({ row }: { row: DaySheetRow }) {
 
 function WasherCell({ row, editable, onPress }: { row: DaySheetRow; editable: boolean; onPress: () => void }) {
   const theme = useTheme();
-  const label = row.washerName ?? (editable ? 'Assign washer' : 'No washer');
+  const { t } = useI18n();
+  const label = row.washerName ?? (editable ? t('Assign washer') : t('No washer'));
   if (!editable) return <AppText variant="caption">{label}</AppText>;
   return (
     <Pressable onPress={onPress} style={[styles.select, { borderColor: theme.border }]} accessibilityRole="button">
@@ -348,12 +357,13 @@ function WasherCell({ row, editable, onPress }: { row: DaySheetRow; editable: bo
 
 function NoteCell({ row, editable, onChange }: { row: DaySheetRow; editable: boolean; onChange: (v: string) => void }) {
   const theme = useTheme();
-  if (!editable) return row.note ? <AppText variant="caption">Note: {row.note}</AppText> : null;
+  const { t } = useI18n();
+  if (!editable) return row.note ? <AppText variant="caption">{t('Note: {note}', { note: row.note })}</AppText> : null;
   return (
     <TextInput
       value={row.note}
       onChangeText={onChange}
-      placeholder="Note"
+      placeholder={t('Note')}
       placeholderTextColor={theme.textSecondary}
       style={[styles.noteInput, { color: theme.text, borderColor: theme.border, fontFamily: Fonts.sans }]}
     />
@@ -374,6 +384,7 @@ function RowActions(p: {
   onPhotos: () => void;
 }) {
   const theme = useTheme();
+  const { t } = useI18n();
   const icon = (name: keyof typeof Ionicons.glyphMap, label: string, onPress: () => void, disabled = false) => (
     <Pressable
       onPress={onPress}
@@ -388,19 +399,19 @@ function RowActions(p: {
     <View style={styles.inline}>
       {p.row.status === 'planned' ? (
         <>
-          <Button title="Washed" icon="checkmark" loading={p.busy} onPress={() => p.onStatus('done')} style={styles.small} />
-          <Button title="Skip" variant="secondary" disabled={p.busy} onPress={() => p.onStatus('skipped')} style={styles.small} />
+          <Button title={t('Washed')} icon="checkmark" loading={p.busy} onPress={() => p.onStatus('done')} style={styles.small} />
+          <Button title={t('Skip')} variant="secondary" disabled={p.busy} onPress={() => p.onStatus('skipped')} style={styles.small} />
         </>
       ) : (
-        <Button title="Undo" variant="ghost" icon="arrow-undo" loading={p.busy} onPress={() => p.onStatus('planned')} style={styles.small} />
+        <Button title={t('Undo')} variant="ghost" icon="arrow-undo" loading={p.busy} onPress={() => p.onStatus('planned')} style={styles.small} />
       )}
-      {icon('camera-outline', 'Photos & details', p.onPhotos)}
+      {icon('camera-outline', t('Photos & details'), p.onPhotos)}
       {p.isAdmin ? (
         <>
-          {icon('arrow-up', 'Move up', p.onUp, p.first)}
-          {icon('arrow-down', 'Move down', p.onDown, p.last)}
-          {icon('calendar-outline', 'Move to another day', p.onMove, p.row.status === 'done')}
-          {icon('close', 'Remove from this day', p.onRemove, p.row.status === 'done')}
+          {icon('arrow-up', t('Move up'), p.onUp, p.first)}
+          {icon('arrow-down', t('Move down'), p.onDown, p.last)}
+          {icon('calendar-outline', t('Move to another day'), p.onMove, p.row.status === 'done')}
+          {icon('close', t('Remove from this day'), p.onRemove, p.row.status === 'done')}
         </>
       ) : null}
     </View>
@@ -418,11 +429,12 @@ function AddCars({
   onAdd: (c: SheetCandidate) => void;
   onClose: () => void;
 }) {
+  const { t, fmt } = useI18n();
   const [list, setList] = useState<SheetCandidate[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    api.sheetCandidates(date).then(setList).catch((e) => setError(e instanceof Error ? e.message : 'Could not load cars'));
-  }, [date]);
+    api.sheetCandidates(date).then(setList).catch((e) => setError(e instanceof Error ? e.message : t('Could not load cars')));
+  }, [date, t]);
   const REASON: Record<SheetCandidate['reason'], { label: string; tone: 'warning' | 'neutral' | 'primary' }> = {
     missed: { label: 'Missed', tone: 'warning' },
     skipped: { label: 'Skipped', tone: 'warning' },
@@ -430,23 +442,23 @@ function AddCars({
     upcoming: { label: 'Upcoming', tone: 'neutral' },
   };
   return (
-    <Picker visible title={`Add a car to ${formatDay(date)}`} onClose={onClose} wide>
+    <Picker visible title={t('Add a car to {date}', { date: fmt.day(date) })} onClose={onClose} wide>
       {error ? <Banner message={error} /> : null}
       {!list && !error ? <Loading /> : null}
-      {list?.length === 0 ? <AppText variant="caption">No other cars to add.</AppText> : null}
+      {list?.length === 0 ? <AppText variant="caption">{t('No other cars to add.')}</AppText> : null}
       {list?.map((c) => {
         const added = existing.has(keyOf(c));
         return (
           <Pressable key={keyOf(c)} disabled={added} onPress={() => onAdd(c)} style={[styles.candidate, added && { opacity: 0.45 }]}>
             <View style={{ flex: 1 }}>
               <AppText variant="label">
-                {c.car.plateNumber} · Bldg {c.car.buildingNumber} {c.car.parkingFloor}
+                {t('{plate} · Bldg {building} {floor}', { plate: c.car.plateNumber, building: c.car.buildingNumber, floor: c.car.parkingFloor })}
               </AppText>
               <AppText variant="caption">
-                {c.member.apartmentName} · {c.member.name} · due {formatDay(c.scheduledDate)}
+                {t('{apartment} · {name} · due {date}', { apartment: c.member.apartmentName, name: c.member.name, date: fmt.day(c.scheduledDate) })}
               </AppText>
             </View>
-            <Badge label={added ? 'Added' : REASON[c.reason].label} tone={added ? 'success' : REASON[c.reason].tone} />
+            <Badge label={added ? t('Added') : t(REASON[c.reason].label)} tone={added ? 'success' : REASON[c.reason].tone} />
           </Pressable>
         );
       })}
@@ -468,6 +480,7 @@ function Picker({
   wide?: boolean;
 }) {
   const theme = useTheme();
+  const { t } = useI18n();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
@@ -476,7 +489,7 @@ function Picker({
             <AppText variant="heading" style={{ flex: 1 }}>
               {title}
             </AppText>
-            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={t('Close')}>
               <Ionicons name="close" size={22} color={theme.text} />
             </Pressable>
           </View>

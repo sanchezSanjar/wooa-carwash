@@ -1,3 +1,4 @@
+import { User, UserSchema } from '@app/common/schemas/user.schema';
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CarsController } from '../cars/cars.controller';
@@ -18,6 +19,7 @@ import { SubscriptionsService } from './subscriptions.service';
     MongooseModule.forFeature([
       { name: Subscription.name, schema: SubscriptionSchema },
       { name: Wash.name, schema: WashSchema },
+      { name: User.name, schema: UserSchema },
     ]),
     CarsModule,
     CatalogModule,

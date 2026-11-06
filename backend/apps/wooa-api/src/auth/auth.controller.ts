@@ -1,5 +1,7 @@
 import { Body, Controller, Get, HttpCode, Ip, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import type { Lang } from '@app/common/i18n';
+import { ReqLang } from '../i18n';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto, RequestOtpDto, ResetPasswordDto, VerifyOtpDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './jwt.strategy';
@@ -21,8 +23,8 @@ export class AuthController {
 
   @Post('otp/request')
   @HttpCode(200)
-  async requestOtp(@Body() dto: RequestOtpDto, @Ip() ip: string) {
-    return { message: await this.otp.request(dto.phone, dto.purpose, ip ?? 'unknown') };
+  async requestOtp(@Body() dto: RequestOtpDto, @Ip() ip: string, @ReqLang() lang: Lang) {
+    return { message: await this.otp.request(dto.phone, dto.purpose, ip ?? 'unknown', lang) };
   }
 
   @Post('otp/verify')
@@ -32,8 +34,8 @@ export class AuthController {
   }
 
   @Post('register')
-  register(@Body() dto: RegisterDto) {
-    return this.auth.register(dto);
+  register(@Body() dto: RegisterDto, @ReqLang() lang: Lang) {
+    return this.auth.register(dto, lang);
   }
 
   @Post('login')

@@ -102,10 +102,10 @@ describe('wash reminder job', () => {
     expect(await job.run(EVENING_BEFORE)).toBe(0); // second run: no duplicates
 
     const sent = await notifications.find().sort({ title: 1 }).lean();
-    expect(sent.map((n) => n.title)).toEqual(['Wash tomorrow: 11가 1111', 'Wash tomorrow: 22가 2222']);
+    expect(sent.map((n) => n.title)).toEqual(['내일 세차: 11가 1111', '내일 세차: 22가 2222']); // members read Korean by default
     expect(sent[0]).toMatchObject({ type: 'wash_reminder', date: '2026-11-02', read: false });
     expect(sent[0].body).toBe(
-      'We wash your car on Mon, Nov 2 in building 101, floor B2. Extras: interior vacuuming.',
+      '11월 2일 (월)에 101동 B2층 주차장에서 세차합니다. 추가 서비스: 실내 진공 청소.',
     );
   });
 });
@@ -139,7 +139,7 @@ describe('jobs follow the day sheets', () => {
     const reminder = app.get(WashReminderJob);
     expect(await reminder.run(new Date('2026-11-16T11:00:00Z'))).toBe(1); // evening of Nov 16 → Nov 17 sheet
     const sent = await notifications.findOne({ subscription: due, date: '2026-11-16', type: 'wash_reminder' }).lean();
-    expect(sent?.body).toMatch(/Tue, Nov 17/);
+    expect(sent?.body).toMatch(/11월 17일 \(화\)/);
 
     // close-out on the new day marks it skipped with the day it was due to be washed
     expect(await closeOut.run(new Date('2026-11-17T14:30:00Z'))).toBe(1);
@@ -168,7 +168,7 @@ describe('billing job', () => {
     // started Nov 5: only Mon Nov 16 is left of its two November washes
     expect(bills[3]).toMatchObject({ amount: 25000, lines: [{ label: 'Basic plan (1 of 2 washes)', amount: 20000 }, { amount: 5000 }] });
     expect(sms.outbox.length - smsBefore).toBe(4);
-    expect(sms.outbox.at(-1)?.text).toMatch(/^\[Wooa Carwash\] Your November wash plan for .+ due Tue, Nov 10/);
+    expect(sms.outbox.at(-1)?.text).toMatch(/^\[Wooa Carwash\] .+ 차량의 11월 세차 요금은 .+원이며, 납부 기한은 11월 10일 \(화\)입니다/);
   });
 
   it('reminds before the due date once, and weekly while overdue', async () => {
@@ -185,7 +185,7 @@ describe('billing job', () => {
 
     const overdue = await notifications.find({ type: 'payment_overdue' }).lean();
     expect(overdue).toHaveLength(6);
-    expect(overdue[0].body).toMatch(/Ignore this if you already paid/);
+    expect(overdue[0].body).toMatch(/이미 납부하셨다면/);
   });
 });
 
@@ -208,7 +208,7 @@ describe('weather job', () => {
     expect(await job.alert(evening)).toBe(2); // the two Monday Nov 2 washes
     expect(await job.alert(evening)).toBe(0); // once per wash
     const sent = await notifications.find({ type: 'weather_alert' }).lean();
-    expect(sent[0].title).toBe('Weather for your wash: Rain likely (80%)');
+    expect(sent[0].title).toBe('세차일 날씨: 비 예상 (80%)');
 
     expect(await job.alert(new Date('2026-11-02T08:30:00Z'))).toBe(0); // Tuesday is dry
   });
