@@ -1,6 +1,17 @@
 import { Platform } from 'react-native';
 
-import type { AuthResponse, Booking, BookingStatus, Slot, User, WashService } from './types';
+import type {
+  AuthResponse,
+  Car,
+  CarInput,
+  DayPlanItem,
+  Extra,
+  ScheduleDay,
+  Subscription,
+  Tariff,
+  User,
+  WashStatus,
+} from './types';
 
 const fallbackUrl = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || fallbackUrl).replace(/\/+$/, '');
@@ -64,37 +75,41 @@ function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-const qs = (params: Record<string, string | undefined>) => {
-  const entries = Object.entries(params).filter(([, v]) => v) as [string, string][];
-  return entries.length ? `?${new URLSearchParams(entries).toString()}` : '';
-};
-
 export const api = {
-  register: (body: { name: string; email: string; password: string; phone?: string }) =>
+  register: (body: { name: string; email: string; password: string; phone: string; apartmentName: string }) =>
     request<AuthResponse>('POST', '/auth/register', body),
-  login: (body: { email: string; password: string }) =>
-    request<AuthResponse>('POST', '/auth/login', body),
+  login: (body: { email: string; password: string }) => request<AuthResponse>('POST', '/auth/login', body),
   me: () => request<User>('GET', '/auth/me'),
+  updateProfile: (body: Partial<Pick<User, 'name' | 'phone' | 'apartmentName'>>) =>
+    request<User>('PATCH', '/members/me', body),
 
-  services: () => request<WashService[]>('GET', '/services'),
-  allServices: () => request<WashService[]>('GET', '/services/admin'),
-  service: (id: string) => request<WashService>('GET', `/services/${id}`),
-  createService: (body: Partial<WashService>) => request<WashService>('POST', '/services', body),
-  updateService: (id: string, body: Partial<WashService>) =>
-    request<WashService>('PATCH', `/services/${id}`, body),
+  tariffs: () => request<Tariff[]>('GET', '/tariffs'),
+  extras: () => request<Extra[]>('GET', '/extras'),
+  allTariffs: () => request<Tariff[]>('GET', '/admin/tariffs'),
+  allExtras: () => request<Extra[]>('GET', '/admin/extras'),
+  updateTariff: (id: string, body: Partial<Pick<Tariff, 'price' | 'active'>>) =>
+    request<Tariff>('PATCH', `/tariffs/${id}`, body),
+  updateExtra: (id: string, body: Partial<Pick<Extra, 'price' | 'active'>>) =>
+    request<Extra>('PATCH', `/extras/${id}`, body),
 
-  availability: (date: string, serviceId: string) =>
-    request<Slot[]>('GET', `/bookings/availability${qs({ date, serviceId })}`),
-  createBooking: (body: {
-    serviceId: string;
-    startsAt: string;
-    vehicle: { plate: string; model?: string };
-    notes?: string;
-  }) => request<Booking>('POST', '/bookings', body),
-  myBookings: () => request<Booking[]>('GET', '/bookings/me'),
-  allBookings: (query: { date?: string; status?: BookingStatus }) =>
-    request<Booking[]>('GET', `/bookings${qs(query)}`),
-  cancelBooking: (id: string) => request<Booking>('PATCH', `/bookings/${id}/cancel`),
-  setBookingStatus: (id: string, status: BookingStatus) =>
-    request<Booking>('PATCH', `/bookings/${id}/status`, { status }),
+  myCars: () => request<Car[]>('GET', '/cars/me'),
+  createCar: (body: CarInput) => request<Car>('POST', '/cars', body),
+  updateCar: (id: string, body: Partial<CarInput>) => request<Car>('PATCH', `/cars/${id}`, body),
+  deleteCar: (id: string) => request<void>('DELETE', `/cars/${id}`),
+
+  mySubscriptions: () => request<Subscription[]>('GET', '/subscriptions/me'),
+  subscribe: (body: {
+    carId: string;
+    tariffId: string;
+    startDate: string;
+    schedule: ScheduleDay[];
+    extraIds: string[];
+  }) => request<Subscription>('POST', '/subscriptions', body),
+  updateSubscription: (id: string, body: { schedule?: ScheduleDay[]; extraIds?: string[] }) =>
+    request<Subscription>('PATCH', `/subscriptions/${id}`, body),
+  cancelSubscription: (id: string) => request<Subscription>('PATCH', `/subscriptions/${id}/cancel`),
+
+  dayPlan: (date: string) => request<DayPlanItem[]>('GET', `/washes?date=${encodeURIComponent(date)}`),
+  setWashStatus: (body: { subscriptionId: string; date: string; status: WashStatus; note?: string }) =>
+    request<{ status: WashStatus }>('PATCH', '/washes', body),
 };

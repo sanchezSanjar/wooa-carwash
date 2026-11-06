@@ -11,7 +11,7 @@ export default function RegisterScreen() {
   const theme = useTheme();
   const { register } = useAuth();
   const { next } = useLocalSearchParams<{ next?: string }>();
-  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', apartmentName: '', password: '' });
   const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string>>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -22,7 +22,8 @@ export default function RegisterScreen() {
     const e: typeof errors = {};
     if (!form.name.trim()) e.name = 'Enter your name';
     if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) e.email = 'Enter a valid email';
-    if (form.phone.trim() && !/^[0-9+\-\s]{7,20}$/.test(form.phone.trim())) e.phone = 'Enter a valid phone number';
+    if (!/^[0-9+\-\s]{7,20}$/.test(form.phone.trim())) e.phone = 'Enter a valid phone number';
+    if (!form.apartmentName.trim()) e.apartmentName = 'Enter your apartment name';
     if (form.password.length < 8) e.password = 'Use at least 8 characters';
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -37,7 +38,8 @@ export default function RegisterScreen() {
         name: form.name.trim(),
         email: form.email.trim(),
         password: form.password,
-        phone: form.phone.trim() || undefined,
+        phone: form.phone.trim(),
+        apartmentName: form.apartmentName.trim(),
       });
       finishAuth(next);
     } catch (e) {
@@ -52,7 +54,7 @@ export default function RegisterScreen() {
       <Screen contentStyle={{ maxWidth: 440 }}>
         <View style={{ gap: Spacing.xs }}>
           <AppText variant="title">Create account</AppText>
-          <AppText variant="caption">It takes less than a minute.</AppText>
+          <AppText variant="caption">We wash your car right in your apartment parking.</AppText>
         </View>
         {error ? <Banner message={error} /> : null}
         <TextField label="Name" value={form.name} onChangeText={set('name')} autoComplete="name" error={errors.name} />
@@ -67,13 +69,20 @@ export default function RegisterScreen() {
           error={errors.email}
         />
         <TextField
-          label="Phone (optional)"
+          label="Phone"
           value={form.phone}
           onChangeText={set('phone')}
           keyboardType="phone-pad"
           autoComplete="tel"
           placeholder="010-1234-5678"
           error={errors.phone}
+        />
+        <TextField
+          label="Apartment name"
+          value={form.apartmentName}
+          onChangeText={set('apartmentName')}
+          placeholder="e.g. Raemian Gwanggyo"
+          error={errors.apartmentName}
         />
         <TextField
           label="Password"

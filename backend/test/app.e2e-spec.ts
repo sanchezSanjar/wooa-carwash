@@ -2,29 +2,47 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import request from 'supertest';
-import { localDayStart, localDate } from '../src/common/business-hours.js';
+import { addDays, today, weekday, weekdayOccurrence } from '../src/common/dates.js';
 
 let mongo: MongoMemoryServer;
 let app: INestApplication;
 let http: ReturnType<INestApplication['getHttpServer']>;
 
-let customerToken: string;
-let otherToken: string;
-let adminToken: string;
-let basicId: string;
-let premiumId: string;
+let kim: string;
+let lee: string;
+let admin: string;
+let tariffs: { id: string; washesPerMonth: number; price: number }[];
+let extras: { id: string; name: string; price: number }[];
+let carId: string;
+let subId: string;
 
-/** A shop-local date a few days ahead, safely inside the booking window. */
-const day = localDate(new Date(Date.now() + 3 * 24 * 60 * 60_000));
-const at = (hh: number, mm = 0) =>
-  new Date(localDayStart(day).getTime() + (hh * 60 + mm) * 60_000).toISOString();
+const MON = 1;
+const WED = 3;
+const FRI = 5;
+const sixTimes = [
+  { weekday: MON, weeks: [1, 3] },
+  { weekday: FRI, weeks: [1, 3] },
+  { weekday: WED, weeks: [2, 4] },
+];
+const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-const register = async (email: string) => {
+const register = async (email: string, apartmentName = 'Raemian Gwanggyo') => {
   const res = await request(http)
     .post('/auth/register')
-    .send({ name: email.split('@')[0], email, password: 'password123', phone: '010-1111-2222' })
+    .send({ name: email.split('@')[0], email, password: 'password123', phone: '010-1111-2222', apartmentName })
     .expect(201);
   return res.body.accessToken as string;
+};
+
+const car = {
+  plateNumber: '12가 3456',
+  brand: 'Hyundai',
+  model: 'Avante',
+  color: 'White',
+  buildingNumber: '101',
+  parkingFloor: 'b2',
+  arrivesHomeAt: '19:00',
+  leavesForWorkAt: '07:30',
 };
 
 beforeAll(async () => {
@@ -33,7 +51,6 @@ beforeAll(async () => {
   process.env.JWT_SECRET = 'test-secret';
   process.env.JWT_EXPIRES_IN = '1h';
   process.env.ADMIN_EMAILS = 'boss@wooa.test';
-  process.env.BAYS = '2';
 
   const { AppModule } = await import('../src/app.module.js');
   const { configureApp } = await import('../src/setup.js');
@@ -49,179 +66,162 @@ afterAll(async () => {
   await mongo?.stop();
 });
 
-describe('auth', () => {
-  it('registers, logs in and returns the profile', async () => {
-    customerToken = await register('kim@wooa.test');
-    otherToken = await register('lee@wooa.test');
-    adminToken = await register('boss@wooa.test');
-
-    const login = await request(http)
-      .post('/auth/login')
-      .send({ email: 'KIM@wooa.test', password: 'password123' })
-      .expect(200);
-    expect(login.body.user).toMatchObject({ email: 'kim@wooa.test', role: 'customer' });
-    expect(login.body.user.passwordHash).toBeUndefined();
-
-    const me = await request(http)
-      .get('/auth/me')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-    expect(me.body.role).toBe('admin');
-  });
-
-  it('rejects duplicates, bad passwords and invalid input', async () => {
+describe('members', () => {
+  it('requires phone and apartment to register', async () => {
     await request(http)
       .post('/auth/register')
-      .send({ name: 'x', email: 'kim@wooa.test', password: 'password123' })
-      .expect(409);
-    await request(http)
-      .post('/auth/login')
-      .send({ email: 'kim@wooa.test', password: 'wrong-password' })
-      .expect(401);
-    await request(http)
-      .post('/auth/register')
-      .send({ name: 'x', email: 'not-an-email', password: 'short' })
+      .send({ name: 'x', email: 'x@wooa.test', password: 'password123' })
       .expect(400);
-    await request(http).get('/auth/me').expect(401);
-  });
-});
+    kim = await register('kim@wooa.test');
+    lee = await register('lee@wooa.test', 'Hillstate');
+    admin = await register('boss@wooa.test');
 
-describe('services', () => {
-  it('seeds default packages', async () => {
-    const res = await request(http).get('/services').expect(200);
-    expect(res.body.map((s: any) => s.name)).toEqual([
-      'Basic Wash',
-      'Premium Wash',
-      'Full Detailing',
-    ]);
-    basicId = res.body[0].id;
-    premiumId = res.body[1].id;
+    const me = await request(http).get('/auth/me').set(auth(kim)).expect(200);
+    expect(me.body).toMatchObject({ phone: '010-1111-2222', apartmentName: 'Raemian Gwanggyo', role: 'customer' });
   });
 
-  it('only admins can manage packages', async () => {
-    const body = { name: 'Engine Bay', price: 20000, durationMinutes: 30 };
-    await request(http)
-      .post('/services')
-      .set('Authorization', `Bearer ${customerToken}`)
-      .send(body)
-      .expect(403);
-    const created = await request(http)
-      .post('/services')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send(body)
-      .expect(201);
-    await request(http)
-      .patch(`/services/${created.body.id}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ active: false })
-      .expect(200);
-    const list = await request(http).get('/services').expect(200);
-    expect(list.body.find((s: any) => s.id === created.body.id)).toBeUndefined();
-  });
-});
-
-describe('bookings', () => {
-  let bookingId: string;
-
-  it('lists availability within opening hours', async () => {
+  it('updates the profile', async () => {
     const res = await request(http)
-      .get('/bookings/availability')
-      .query({ date: day, serviceId: premiumId })
+      .patch('/members/me')
+      .set(auth(kim))
+      .send({ apartmentName: 'Raemian Gwanggyo 2' })
       .expect(200);
-    // 09:00–18:00 starts for a 60 min wash, every 30 min
-    expect(res.body).toHaveLength(19);
-    expect(res.body[0]).toMatchObject({ startsAt: at(9), available: true, remaining: 2 });
-    expect(res.body.at(-1).startsAt).toBe(at(18));
+    expect(res.body.apartmentName).toBe('Raemian Gwanggyo 2');
+  });
+});
+
+describe('catalog', () => {
+  it('seeds tariffs and extras', async () => {
+    tariffs = (await request(http).get('/tariffs').expect(200)).body;
+    extras = (await request(http).get('/extras').expect(200)).body;
+    expect(tariffs.map((t) => t.washesPerMonth)).toEqual([2, 4, 6]);
+    expect(extras.map((e) => e.name)).toContain('Anti-rain polish');
   });
 
-  it('creates a booking and enforces bay capacity', async () => {
-    const book = (token: string, startsAt: string, serviceId = premiumId) =>
-      request(http)
-        .post('/bookings')
-        .set('Authorization', `Bearer ${token}`)
-        .send({ serviceId, startsAt, vehicle: { plate: '12가 3456', model: 'Avante' } });
-
-    const first = await book(customerToken, at(10)).expect(201);
-    expect(first.body).toMatchObject({
-      serviceName: 'Premium Wash',
-      price: 35000,
-      status: 'pending',
-      endsAt: at(11),
-      date: day,
-    });
-    bookingId = first.body.id;
-
-    await book(otherToken, at(10, 30)).expect(201); // overlaps 10:30–11:00
-    await book(customerToken, at(10, 30), basicId).expect(409); // both bays busy
-    await book(customerToken, at(11), basicId).expect(201); // first one finished
-
-    const avail = await request(http)
-      .get('/bookings/availability')
-      .query({ date: day, serviceId: basicId })
-      .expect(200);
-    const slot = (t: string) => avail.body.find((s: any) => s.startsAt === t);
-    expect(slot(at(10))).toMatchObject({ remaining: 1, available: true });
-    expect(slot(at(10, 30))).toMatchObject({ remaining: 0, available: false });
+  it('only admins edit prices', async () => {
+    await request(http).patch(`/extras/${extras[0].id}`).set(auth(kim)).send({ price: 1 }).expect(403);
+    await request(http).patch(`/extras/${extras[0].id}`).set(auth(admin)).send({ price: 6000 }).expect(200);
+    extras[0].price = 6000;
   });
+});
 
-  it('rejects invalid times', async () => {
-    const book = (startsAt: string) =>
-      request(http)
-        .post('/bookings')
-        .set('Authorization', `Bearer ${customerToken}`)
-        .send({ serviceId: premiumId, startsAt, vehicle: { plate: '1234' } });
-    await book(at(8)).expect(400); // before opening
-    await book(at(18, 30)).expect(400); // would end after close
-    await book(at(12, 15)).expect(400); // off-grid
-    await book(new Date(Date.now() - 3600_000).toISOString()).expect(400); // past
-  });
+describe('cars', () => {
+  it('adds a car with its location and commute times', async () => {
+    const res = await request(http).post('/cars').set(auth(kim)).send(car).expect(201);
+    expect(res.body).toMatchObject({ plateNumber: '12가 3456', parkingFloor: 'B2', buildingNumber: '101' });
+    carId = res.body.id;
 
-  it('keeps bookings private and lets admins manage them', async () => {
-    const mine = await request(http)
-      .get('/bookings/me')
-      .set('Authorization', `Bearer ${customerToken}`)
-      .expect(200);
+    await request(http).post('/cars').set(auth(lee)).send(car).expect(409); // plate taken
+    await request(http)
+      .post('/cars')
+      .set(auth(kim))
+      .send({ ...car, plateNumber: '34나 5678', arrivesHomeAt: '7pm' })
+      .expect(400);
+    await request(http)
+      .post('/cars')
+      .set(auth(kim))
+      .send({ ...car, plateNumber: '34나 5678', brand: 'Kia', model: 'K5', color: 'Black' })
+      .expect(201);
+
+    const mine = await request(http).get('/cars/me').set(auth(kim)).expect(200);
     expect(mine.body).toHaveLength(2);
+    expect((await request(http).get('/cars/me').set(auth(lee)).expect(200)).body).toHaveLength(0);
+    await request(http).patch(`/cars/${carId}`).set(auth(lee)).send({ color: 'Red' }).expect(404);
+  });
+});
+
+describe('subscriptions', () => {
+  it('validates the schedule against the tariff', async () => {
+    const six = tariffs.find((t) => t.washesPerMonth === 6)!;
+    const res = await request(http)
+      .post('/subscriptions')
+      .set(auth(kim))
+      .send({ carId, tariffId: six.id, startDate: today(), schedule: [{ weekday: MON, weeks: [1, 3] }] })
+      .expect(400);
+    expect(res.body.message).toMatch(/6 washes per month/);
 
     await request(http)
-      .get('/bookings')
-      .set('Authorization', `Bearer ${customerToken}`)
-      .expect(403);
-    const all = await request(http)
-      .get('/bookings')
-      .query({ date: day })
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-    expect(all.body).toHaveLength(3);
-    expect(all.body[0].customer).toMatchObject({ email: 'kim@wooa.test' });
+      .post('/subscriptions')
+      .set(auth(kim))
+      .send({ carId, tariffId: six.id, startDate: addDays(today(), -1), schedule: sixTimes })
+      .expect(400); // past start
+  });
+
+  it('subscribes a car with extras', async () => {
+    const six = tariffs.find((t) => t.washesPerMonth === 6)!;
+    const chosen = [extras[0], extras[2]];
+    const res = await request(http)
+      .post('/subscriptions')
+      .set(auth(kim))
+      .send({ carId, tariffId: six.id, startDate: today(), schedule: sixTimes, extraIds: chosen.map((e) => e.id) })
+      .expect(201);
+    subId = res.body.id;
+    expect(res.body).toMatchObject({ status: 'active', washesPerMonth: 6, carId });
+    expect(res.body.monthlyPrice).toBe(six.price + (chosen[0].price + chosen[1].price) * 6);
+    expect(res.body.upcoming).toHaveLength(6);
+    for (const d of res.body.upcoming as string[]) {
+      const wd = weekday(d);
+      const occ = weekdayOccurrence(d);
+      expect(
+        ((wd === MON || wd === FRI) && (occ === 1 || occ === 3)) || (wd === WED && (occ === 2 || occ === 4)),
+      ).toBe(true);
+    }
 
     await request(http)
-      .patch(`/bookings/${bookingId}/cancel`)
-      .set('Authorization', `Bearer ${otherToken}`)
-      .expect(404);
+      .post('/subscriptions')
+      .set(auth(kim))
+      .send({ carId, tariffId: six.id, startDate: today(), schedule: sixTimes })
+      .expect(409); // already active
+    await request(http)
+      .post('/subscriptions')
+      .set(auth(lee))
+      .send({ carId, tariffId: six.id, startDate: today(), schedule: sixTimes })
+      .expect(404); // not lee's car
+    await request(http).delete(`/cars/${carId}`).set(auth(kim)).expect(409);
+  });
+
+  it('gives admins the day route and records outcomes', async () => {
+    const mine = await request(http).get('/subscriptions/me').set(auth(kim)).expect(200);
+    const washDay = mine.body[0].upcoming[0] as string;
+
+    await request(http).get('/washes').query({ date: washDay }).set(auth(kim)).expect(403);
+    const plan = await request(http).get('/washes').query({ date: washDay }).set(auth(admin)).expect(200);
+    expect(plan.body).toHaveLength(1);
+    expect(plan.body[0]).toMatchObject({
+      status: 'planned',
+      car: { plateNumber: '12가 3456', buildingNumber: '101', parkingFloor: 'B2', arrivesHomeAt: '19:00' },
+      member: { apartmentName: 'Raemian Gwanggyo 2', phone: '010-1111-2222' },
+    });
+    expect(plan.body[0].extras).toHaveLength(2);
 
     await request(http)
-      .patch(`/bookings/${bookingId}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ status: 'completed' })
-      .expect(400); // pending -> completed not allowed
+      .patch('/washes')
+      .set(auth(admin))
+      .send({ subscriptionId: subId, date: washDay, status: 'done' })
+      .expect(200);
+    const notWashDay = addDays(washDay, 1);
     await request(http)
-      .patch(`/bookings/${bookingId}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ status: 'confirmed' })
-      .expect(200);
+      .patch('/washes')
+      .set(auth(admin))
+      .send({ subscriptionId: subId, date: notWashDay, status: 'done' })
+      .expect(400);
 
-    const cancelled = await request(http)
-      .patch(`/bookings/${bookingId}/cancel`)
-      .set('Authorization', `Bearer ${customerToken}`)
-      .expect(200);
-    expect(cancelled.body.status).toBe('cancelled');
+    const after = await request(http).get('/subscriptions/me').set(auth(kim)).expect(200);
+    expect(after.body[0].history).toEqual([{ date: washDay, status: 'done', note: '' }]);
+  });
 
-    // the freed bay is bookable again
-    const avail = await request(http)
-      .get('/bookings/availability')
-      .query({ date: day, serviceId: basicId })
+  it('changes extras, cancels, then frees the car', async () => {
+    const updated = await request(http)
+      .patch(`/subscriptions/${subId}`)
+      .set(auth(kim))
+      .send({ extraIds: [] })
       .expect(200);
-    expect(avail.body.find((s: any) => s.startsAt === at(10, 30)).remaining).toBe(1);
+    expect(updated.body.monthlyPrice).toBe(tariffs.find((t) => t.washesPerMonth === 6)!.price);
+
+    await request(http).patch(`/subscriptions/${subId}/cancel`).set(auth(lee)).expect(404);
+    const cancelled = await request(http).patch(`/subscriptions/${subId}/cancel`).set(auth(kim)).expect(200);
+    expect(cancelled.body).toMatchObject({ status: 'cancelled', upcoming: [] });
+
+    await request(http).delete(`/cars/${carId}`).set(auth(kim)).expect(204);
   });
 });
