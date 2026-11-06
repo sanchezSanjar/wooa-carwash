@@ -6,6 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import { Landing } from '@/components/landing';
 import { TariffCards } from '@/components/plans';
 import { AppText, Banner, Button, Card, EmptyState, Loading, Screen, SectionTitle } from '@/components/ui';
+import { Updates } from '@/components/updates';
 import { Radius, Spacing, useTheme } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { api } from '@/lib/api';
@@ -65,6 +66,8 @@ function MemberHome({ user, tariffs }: { user: User; tariffs: Parameters<typeof 
 
       {error ? <Banner message={error} /> : null}
       {loading ? <Loading /> : null}
+
+      <Updates />
 
       {data && data.cars.length === 0 ? (
         <Card>
