@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import ExcelJS from 'exceljs';
 import { Model } from 'mongoose';
 import { addDays, isValidDate } from '@app/common/dates';
-import { dayLabel } from '@app/common/notify';
+import { dayLabel, weekdayName, type Lang } from '@app/common/i18n';
 import { washKey } from '@app/common/planner';
 import { isWashDay } from '@app/common/schedule';
 import { Car } from '@app/common/schemas/car.schema';
@@ -18,20 +18,59 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Column order of the exported workbook. Only the editable ones are read back. */
 const COLUMNS = [
-  { key: 'order', header: 'Order', width: 7, editable: true },
-  { key: 'day', header: 'Day (YYYY-MM-DD)', width: 17, editable: true },
-  { key: 'plate', header: 'Plate number', width: 14, editable: false },
-  { key: 'car', header: 'Car', width: 22, editable: false },
-  { key: 'apartment', header: 'Apartment', width: 20, editable: false },
-  { key: 'building', header: 'Building', width: 9, editable: false },
-  { key: 'floor', header: 'Floor', width: 7, editable: false },
-  { key: 'parked', header: 'Parked', width: 14, editable: false },
-  { key: 'plan', header: 'Plan and extras', width: 30, editable: false },
-  { key: 'washer', header: 'Washer', width: 16, editable: true },
-  { key: 'note', header: 'Note', width: 30, editable: true },
-  { key: 'status', header: 'Status', width: 10, editable: false },
-  { key: 'scheduled', header: 'Scheduled wash (do not edit)', width: 22, editable: false },
+  { key: 'order', header: 'Order', ko: '순서', width: 7, editable: true },
+  { key: 'day', header: 'Day (YYYY-MM-DD)', ko: '날짜 (YYYY-MM-DD)', width: 17, editable: true },
+  { key: 'plate', header: 'Plate number', ko: '차량 번호', width: 14, editable: false },
+  { key: 'car', header: 'Car', ko: '차량', width: 22, editable: false },
+  { key: 'apartment', header: 'Apartment', ko: '아파트', width: 20, editable: false },
+  { key: 'building', header: 'Building', ko: '동', width: 9, editable: false },
+  { key: 'floor', header: 'Floor', ko: '층', width: 7, editable: false },
+  { key: 'parked', header: 'Parked', ko: '주차 시간', width: 14, editable: false },
+  { key: 'plan', header: 'Plan and extras', ko: '요금제 및 추가 서비스', width: 30, editable: false },
+  { key: 'washer', header: 'Washer', ko: '담당자', width: 16, editable: true },
+  { key: 'note', header: 'Note', ko: '메모', width: 30, editable: true },
+  { key: 'status', header: 'Status', ko: '상태', width: 10, editable: false },
+  { key: 'scheduled', header: 'Scheduled wash (do not edit)', ko: '예정 세차일 (수정 금지)', width: 22, editable: false },
 ] as const;
+
+const STATUS: Record<Lang, Record<string, string>> = {
+  en: { planned: 'planned', done: 'washed', skipped: 'skipped' },
+  ko: { planned: '예정', done: '완료', skipped: '건너뜀' },
+};
+
+/** Preview texts in the admin's language. */
+const TEXT = {
+  en: {
+    missingColumns: 'Missing the "Plate number" or "Day" column',
+    notADate: (day: string) => `"${day}" is not a date (use YYYY-MM-DD)`,
+    noCar: 'No car with an active plan has this plate; ignored',
+    notScheduled: (date: string) => `This car has no wash scheduled on ${date}; add it in the app instead`,
+    twice: 'The same wash appears twice; only the first row is used',
+    locked: (done: boolean, day: string) => `Already ${done ? 'washed' : 'skipped'}; it stays on ${day}`,
+    noWasher: (name: string) => `No washer called "${name}"; washer left as it was`,
+    removed: (day: string) => `taken off ${day}`,
+    added: (day: string) => `added to ${day}`,
+    moved: (from: string, to: string) => `moves from ${from} to ${to}`,
+    order: (day: string, from: number, to: number) => `${day}: moves from ${from} to ${to}`,
+    washer: (from: string | null, to: string | null) => `washer: ${from ?? 'nobody'} → ${to ?? 'nobody'}`,
+    note: (note: string) => (note ? `note: “${note}”` : 'note removed'),
+  },
+  ko: {
+    missingColumns: '"차량 번호" 또는 "날짜" 열이 없습니다',
+    notADate: (day: string) => `"${day}"은(는) 날짜가 아닙니다 (YYYY-MM-DD 형식)`,
+    noCar: '이 번호로 이용 중인 차량이 없어 건너뜁니다',
+    notScheduled: (date: string) => `이 차량은 ${date}에 세차 일정이 없습니다. 앱에서 추가해 주세요`,
+    twice: '같은 세차가 두 번 있습니다. 첫 번째 행만 사용합니다',
+    locked: (done: boolean, day: string) => `이미 ${done ? '세차 완료' : '건너뜀'} 처리되어 ${day}에 그대로 둡니다`,
+    noWasher: (name: string) => `"${name}" 담당자가 없어 기존 담당자를 유지합니다`,
+    removed: (day: string) => `${day}에서 빠짐`,
+    added: (day: string) => `${day}에 추가`,
+    moved: (from: string, to: string) => `${from} → ${to}로 이동`,
+    order: (day: string, from: number, to: number) => `${day}: ${from}번 → ${to}번`,
+    washer: (from: string | null, to: string | null) => `담당자: ${from ?? '없음'} → ${to ?? '없음'}`,
+    note: (note: string) => (note ? `메모: “${note}”` : '메모 삭제'),
+  },
+};
 type ColumnKey = (typeof COLUMNS)[number]['key'];
 
 type SheetRows = Awaited<ReturnType<DaySheetsService['get']>>['rows'];
@@ -68,7 +107,7 @@ export class DaySheetsXlsxService {
     @InjectModel(Car.name) private readonly cars: Model<Car>,
   ) {}
 
-  async export(from: string, days: number): Promise<{ filename: string; buffer: Buffer }> {
+  async export(from: string, days: number, lang: Lang = 'en'): Promise<{ filename: string; buffer: Buffer }> {
     if (!isValidDate(from)) throw new BadRequestException('Invalid start date');
     const count = Math.min(Math.max(1, Math.floor(days) || 1), MAX_EXPORT_DAYS);
     const book = new ExcelJS.Workbook();
@@ -78,10 +117,10 @@ export class DaySheetsXlsxService {
     for (let i = 0; i < count; i++) {
       const date = addDays(from, i);
       const sheet = await this.sheets.get(date);
-      const ws = book.addWorksheet(`${date} ${dayLabel(date).slice(0, 3)}`, {
+      const ws = book.addWorksheet(`${date} ${weekdayName(date, lang)}`, {
         views: [{ state: 'frozen', ySplit: 1 }],
       });
-      ws.columns = COLUMNS.map((c) => ({ key: c.key, header: c.header, width: c.width }));
+      ws.columns = COLUMNS.map((c) => ({ key: c.key, header: lang === 'ko' ? c.ko : c.header, width: c.width }));
       const head = ws.getRow(1);
       head.font = { bold: true };
       head.eachCell((cell, n) => {
@@ -102,7 +141,7 @@ export class DaySheetsXlsxService {
           plan: [r.tariffName, ...r.extras].join(', '),
           washer: r.washerName ?? '',
           note: r.note,
-          status: r.status,
+          status: STATUS[lang][r.status] ?? r.status,
           scheduled: r.scheduledDate,
         } satisfies Record<ColumnKey, string | number>);
         row.getCell('scheduled').font = { color: { argb: 'FF8A9099' } };
@@ -116,7 +155,9 @@ export class DaySheetsXlsxService {
   }
 
   /** Reads an edited workbook and returns what it would change, without saving anything. */
-  async preview(file?: { buffer: Buffer; size: number; originalname?: string }) {
+  async preview(file?: { buffer: Buffer; size: number; originalname?: string }, lang: Lang = 'en') {
+    const T = TEXT[lang];
+    const day = (date: string) => dayLabel(date, lang);
     if (!file?.buffer?.length) throw new BadRequestException('Attach an .xlsx file');
     if (file.size > MAX_IMPORT_BYTES) throw new BadRequestException('The file is too large (2 MB at most)');
     const book = new ExcelJS.Workbook();
@@ -136,7 +177,7 @@ export class DaySheetsXlsxService {
       covered.add(tabDate);
       const col = this.columnMap(ws);
       if (!col.plate || !col.day) {
-        problems.push({ sheet: ws.name, row: 1, plateNumber: '', message: 'Missing the "Plate number" or "Day" column' });
+        problems.push({ sheet: ws.name, row: 1, plateNumber: '', message: T.missingColumns });
         continue;
       }
       ws.eachRow((row, n) => {
@@ -185,21 +226,21 @@ export class DaySheetsXlsxService {
     const placed: { day: string; order: number; seq: number; key: string; subscriptionId: string; scheduledDate: string; washerId?: string; washerName: string | null; note: string; plate: string }[] = [];
     parsed.forEach((p, seq) => {
       const problem = (message: string) => problems.push({ sheet: p.sheet, row: p.row, plateNumber: p.plate, message });
-      if (!DATE_RE.test(p.day) || !isValidDate(p.day)) return problem(`"${p.day}" is not a date (use YYYY-MM-DD)`);
+      if (!DATE_RE.test(p.day) || !isValidDate(p.day)) return problem(T.notADate(p.day));
       const car = carByPlate.get(p.plate);
       const sub = car ? subByCar.get(car._id.toString()) : undefined;
-      if (!sub) return problem('No car with an active plan has this plate; ignored');
+      if (!sub) return problem(T.noCar);
       const scheduledDate = p.scheduled || p.day;
       if (scheduledDate < sub.startDate || !isWashDay(sub.schedule, scheduledDate)) {
-        return problem(`This car has no wash scheduled on ${scheduledDate}; add it in the app instead`);
+        return problem(T.notScheduled(scheduledDate));
       }
       const key = washKey(sub._id, scheduledDate);
-      if (seen.has(key)) return problem('The same wash appears twice; only the first row is used');
+      if (seen.has(key)) return problem(T.twice);
       seen.add(key);
 
       const was = currentByKey.get(key);
       if (was && was.row.status !== 'planned' && was.date !== p.day) {
-        return problem(`Already ${was.row.status === 'done' ? 'washed' : 'skipped'}; it stays on ${dayLabel(was.date)}`);
+        return problem(T.locked(was.row.status === 'done', day(was.date)));
       }
       let washerId: string | undefined;
       let washerName: string | null = null;
@@ -209,7 +250,7 @@ export class DaySheetsXlsxService {
           washerId = s.id;
           washerName = s.name;
         } else {
-          problem(`No washer called "${p.washer}"; washer left as it was`);
+          problem(T.noWasher(p.washer));
           washerId = was?.row.washerId ?? undefined;
           washerName = was?.row.washerName ?? null;
         }
@@ -250,30 +291,30 @@ export class DaySheetsXlsxService {
         const key = washKey(r.subscriptionId, r.scheduledDate);
         if (r.status !== 'planned') continue;
         if (covered.has(date) && !placedKeys.has(key)) {
-          changes.push({ type: 'removed', plateNumber: r.car.plateNumber, date, detail: `taken off ${dayLabel(date)}` });
+          changes.push({ type: 'removed', plateNumber: r.car.plateNumber, date, detail: T.removed(day(date)) });
         }
       }
       fromFile.forEach((p) => {
         const was = currentByKey.get(p.key);
         const newIndex = rows.findIndex((r) => washKey(r.subscriptionId, r.scheduledDate) === p.key);
         if (!was) {
-          changes.push({ type: 'added', plateNumber: p.plate, date, detail: `added to ${dayLabel(date)}` });
+          changes.push({ type: 'added', plateNumber: p.plate, date, detail: T.added(day(date)) });
           return;
         }
         let changed = false;
         if (was.date !== date) {
-          changes.push({ type: 'moved', plateNumber: p.plate, date, detail: `moves from ${dayLabel(was.date)} to ${dayLabel(date)}` });
+          changes.push({ type: 'moved', plateNumber: p.plate, date, detail: T.moved(day(was.date), day(date)) });
           changed = true;
         } else if (was.index !== newIndex) {
-          changes.push({ type: 'order', plateNumber: p.plate, date, detail: `${dayLabel(date)}: moves from ${was.index + 1} to ${newIndex + 1}` });
+          changes.push({ type: 'order', plateNumber: p.plate, date, detail: T.order(day(date), was.index + 1, newIndex + 1) });
           changed = true;
         }
         if ((was.row.washerId ?? null) !== (p.washerId ?? null)) {
-          changes.push({ type: 'washer', plateNumber: p.plate, date, detail: `washer: ${was.row.washerName ?? 'nobody'} → ${p.washerName ?? 'nobody'}` });
+          changes.push({ type: 'washer', plateNumber: p.plate, date, detail: T.washer(was.row.washerName ?? null, p.washerName) });
           changed = true;
         }
         if ((was.row.note ?? '') !== p.note) {
-          changes.push({ type: 'note', plateNumber: p.plate, date, detail: p.note ? `note: “${p.note}”` : 'note removed' });
+          changes.push({ type: 'note', plateNumber: p.plate, date, detail: T.note(p.note) });
           changed = true;
         }
         if (!changed) unchanged++;
@@ -306,7 +347,8 @@ export class DaySheetsXlsxService {
     const map: Partial<Record<ColumnKey, number>> = {};
     ws.getRow(1).eachCell((cell, n) => {
       const header = text(cell.value).toLowerCase();
-      const column = COLUMNS.find((c) => header.startsWith(c.header.toLowerCase().split(' (')[0]));
+      // headers in either language, so an English export can be imported while using Korean and back
+      const column = COLUMNS.find((c) => [c.header, c.ko].some((h) => header.startsWith(h.toLowerCase().split(' (')[0])));
       if (column && !map[column.key]) map[column.key] = n;
     });
     return map;

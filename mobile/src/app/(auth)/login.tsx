@@ -7,10 +7,12 @@ import { Spacing, useTheme } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 import { formatPhone, isMobile } from '@/lib/format';
 import { finishAuth } from '@/lib/navigation';
+import { useI18n } from '@/lib/i18n';
 
 export default function LoginScreen() {
   const theme = useTheme();
   const { login } = useAuth();
+  const { t } = useI18n();
   const { next } = useLocalSearchParams<{ next?: string }>();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -20,7 +22,7 @@ export default function LoginScreen() {
 
   const submit = async () => {
     if (!isMobile(phone) || !password) {
-      setError('Enter your mobile number and password');
+      setError(t('Enter your mobile number and password'));
       return;
     }
     setBusy(true);
@@ -29,7 +31,7 @@ export default function LoginScreen() {
       await login(phone, password);
       finishAuth(next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not log in');
+      setError(e instanceof Error ? e.message : t('Could not log in'));
     } finally {
       setBusy(false);
     }
@@ -41,12 +43,12 @@ export default function LoginScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Screen contentStyle={{ maxWidth: 440 }}>
         <View style={{ gap: Spacing.xs }}>
-          <AppText variant="title">Welcome back</AppText>
-          <AppText variant="caption">Log in with your mobile number.</AppText>
+          <AppText variant="title">{t('Welcome back')}</AppText>
+          <AppText variant="caption">{t('Log in with your mobile number.')}</AppText>
         </View>
         {error ? <Banner message={error} /> : null}
         <TextField
-          label="Mobile number"
+          label={t('Mobile number')}
           value={phone}
           onChangeText={setPhone}
           onBlur={() => phone && setPhone(formatPhone(phone))}
@@ -59,7 +61,7 @@ export default function LoginScreen() {
         />
         <TextField
           ref={passwordRef}
-          label="Password"
+          label={t('Password')}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -68,19 +70,19 @@ export default function LoginScreen() {
           returnKeyType="go"
           onSubmitEditing={submit}
         />
-        <Button title="Log in" loading={busy} onPress={submit} />
+        <Button title={t('Log in')} loading={busy} onPress={submit} />
         <View style={{ alignItems: 'center' }}>
           <Link href="/forgot" replace>
             <AppText variant="caption" style={link}>
-              Forgot password?
+              {t('Forgot password?')}
             </AppText>
           </Link>
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 4 }}>
-          <AppText variant="caption">New here?</AppText>
+          <AppText variant="caption">{t('New here?')}</AppText>
           <Link href={{ pathname: '/register', params: next ? { next } : {} }} replace>
             <AppText variant="caption" style={link}>
-              Create an account
+              {t('Create an account')}
             </AppText>
           </Link>
         </View>

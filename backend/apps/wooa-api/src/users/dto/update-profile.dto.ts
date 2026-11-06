@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import { MemberStatus, Role } from '@app/common/enums';
+import { LANGS, type Lang } from '@app/common/i18n';
 import { PHONE_RE } from '../../auth/dto/auth.dto';
 
 export class UpdateProfileDto {
@@ -23,6 +24,11 @@ export class UpdateProfileDto {
   @ValidateIf((o: UpdateProfileDto) => o.email !== '')
   @IsEmail()
   email?: string;
+
+  @ApiPropertyOptional({ enum: LANGS, description: 'Language of notifications and SMS' })
+  @IsOptional()
+  @IsIn(LANGS)
+  language?: Lang;
 }
 
 export class ChangePasswordDto {
@@ -64,6 +70,11 @@ export class AdminCreateMemberDto {
   @IsOptional()
   @IsIn(Object.values(Role))
   role?: Role;
+
+  @ApiPropertyOptional({ enum: LANGS, default: 'ko' })
+  @IsOptional()
+  @IsIn(LANGS)
+  language?: Lang;
 
   @ApiPropertyOptional({ description: 'Leave empty: the member sets it via "Forgot password" (SMS)' })
   @IsOptional()

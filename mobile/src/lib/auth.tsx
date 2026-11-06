@@ -17,7 +17,7 @@ interface AuthState {
   ready: boolean;
   login: (phone: string, password: string) => Promise<void>;
   register: (data: RegisterInput) => Promise<void>;
-  updateProfile: (data: { name?: string; apartmentName?: string; email?: string }) => Promise<void>;
+  updateProfile: (data: { name?: string; apartmentName?: string; email?: string; language?: 'ko' | 'en' }) => Promise<void>;
   logout: () => Promise<void>;
 }
 

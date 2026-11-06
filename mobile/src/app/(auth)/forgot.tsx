@@ -6,9 +6,11 @@ import { PhoneVerify } from '@/components/phone-verify';
 import { AppText, Banner, Button, Screen, TextField } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { api } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 /** Forgot password: verify the phone by SMS, then choose a new password. */
 export default function ForgotScreen() {
+  const { t } = useI18n();
   const [token, setToken] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -17,8 +19,8 @@ export default function ForgotScreen() {
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
-    if (password.length < 8) return setError('Use at least 8 characters');
-    if (password !== confirm) return setError('The passwords do not match');
+    if (password.length < 8) return setError(t('Use at least 8 characters'));
+    if (password !== confirm) return setError(t('The passwords do not match'));
     if (!token) return;
     setBusy(true);
     setError(null);
@@ -26,7 +28,7 @@ export default function ForgotScreen() {
       await api.resetPassword(token, password);
       setDone(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not change the password');
+      setError(e instanceof Error ? e.message : t('Could not change the password'));
     } finally {
       setBusy(false);
     }
@@ -36,41 +38,41 @@ export default function ForgotScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Screen contentStyle={{ maxWidth: 440 }}>
         <View style={{ gap: Spacing.xs }}>
-          <AppText variant="title">Reset password</AppText>
+          <AppText variant="title">{t('Reset password')}</AppText>
           <AppText variant="caption">
             {done
-              ? 'Your password was changed.'
+              ? t('Your password was changed.')
               : token
-                ? 'Choose a new password.'
-                : 'We send a code to the mobile number on your account.'}
+                ? t('Choose a new password.')
+                : t('We send a code to the mobile number on your account.')}
           </AppText>
         </View>
         {error ? <Banner message={error} /> : null}
 
         {done ? (
           <>
-            <Banner tone="success" message="Password changed. Log in with your new password." />
-            <Button title="Log in" onPress={() => router.replace('/login')} />
+            <Banner tone="success" message={t('Password changed. Log in with your new password.')} />
+            <Button title={t('Log in')} onPress={() => router.replace('/login')} />
           </>
         ) : token ? (
           <>
             <TextField
-              label="New password"
+              label={t('New password')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoComplete="new-password"
               textContentType="newPassword"
-              placeholder="At least 8 characters"
+              placeholder={t('At least 8 characters')}
             />
-            <TextField label="Repeat new password" value={confirm} onChangeText={setConfirm} secureTextEntry onSubmitEditing={save} />
-            <Button title="Save new password" loading={busy} onPress={save} />
+            <TextField label={t('Repeat new password')} value={confirm} onChangeText={setConfirm} secureTextEntry onSubmitEditing={save} />
+            <Button title={t('Save new password')} loading={busy} onPress={save} />
           </>
         ) : (
           <PhoneVerify
             purpose="reset"
             onVerified={(_phone, resetToken) =>
-              resetToken ? setToken(resetToken) : setError('Something went wrong. Request a new code.')
+              resetToken ? setToken(resetToken) : setError(t('Something went wrong. Request a new code.'))
             }
           />
         )}

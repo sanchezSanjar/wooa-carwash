@@ -11,8 +11,8 @@ import { Fonts, Radius, Spacing, useTheme } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { formatKRW } from '@/lib/format';
 import type { Extra, Tariff } from '@/lib/types';
+import { useI18n } from '@/lib/i18n';
 
 type Tab = 'route' | 'payments' | 'members' | 'reviews' | 'prices';
 const TAB_LABEL: Record<Tab, string> = {
@@ -31,18 +31,19 @@ export default function AdminScreen() {
 
 function Dashboard({ isAdmin }: { isAdmin: boolean }) {
   const theme = useTheme();
+  const { t: tr } = useI18n();
   const [tab, setTab] = useState<Tab>('route');
   // washers only see the route; admins see everything
   const tabs: Tab[] = isAdmin ? ['route', 'payments', 'members', 'reviews', 'prices'] : ['route'];
   return (
     <Screen>
-      <AppText variant="title">Manage</AppText>
+      <AppText variant="title">{tr('Manage')}</AppText>
       {tabs.length > 1 ? (
         <View style={[styles.segment, { backgroundColor: theme.muted }]}>
           {tabs.map((t) => (
             <Pressable key={t} onPress={() => setTab(t)} style={[styles.segmentItem, tab === t && { backgroundColor: theme.card }]}>
               <AppText variant="label" color={tab === t ? theme.text : theme.textSecondary}>
-                {TAB_LABEL[t]}
+                {tr(TAB_LABEL[t])}
               </AppText>
             </Pressable>
           ))}
@@ -59,19 +60,20 @@ function Prices() {
     return { tariffs, extras };
   }, []);
   const { data, error, loading } = useApi(load);
+  const { t } = useI18n();
   if (loading) return <Loading />;
   if (error) return <Banner message={error} />;
   return (
     <>
-      <AppText variant="heading">Plans (per month)</AppText>
-      {data?.tariffs.map((t) => (
-        <PriceRow key={t.id} item={t} subtitle={`${t.washesPerMonth} washes per month`} save={(body) => api.updateTariff(t.id, body)} />
+      <AppText variant="heading">{t('Plans (per month)')}</AppText>
+      {data?.tariffs.map((x) => (
+        <PriceRow key={x.id} item={x} subtitle={t('{n} washes per month', { n: x.washesPerMonth })} save={(body) => api.updateTariff(x.id, body)} />
       ))}
-      <AppText variant="heading">Extra services (per wash)</AppText>
+      <AppText variant="heading">{t('Extra services (per wash)')}</AppText>
       {data?.extras.map((e) => (
-        <PriceRow key={e.id} item={e} subtitle={e.description} save={(body) => api.updateExtra(e.id, body)} />
+        <PriceRow key={e.id} item={e} subtitle={t(e.description)} save={(body) => api.updateExtra(e.id, body)} />
       ))}
-      <AppText variant="caption">Price changes apply to new plans. Existing plans keep the price they started with.</AppText>
+      <AppText variant="caption">{t('Price changes apply to new plans. Existing plans keep the price they started with.')}</AppText>
     </>
   );
 }
@@ -86,6 +88,7 @@ function PriceRow({
   save: (body: { price?: number; active?: boolean }) => Promise<unknown>;
 }) {
   const theme = useTheme();
+  const { t, fmt } = useI18n();
   const [price, setPrice] = useState(String(item.price));
   const [savedPrice, setSavedPrice] = useState(item.price);
   const [active, setActive] = useState(item.active);
@@ -102,7 +105,7 @@ function PriceRow({
       if (body.price !== undefined) setSavedPrice(body.price);
       if (body.active !== undefined) setActive(body.active);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save');
+      setError(e instanceof Error ? e.message : t('Could not save'));
     } finally {
       setBusy(false);
     }
@@ -113,10 +116,10 @@ function PriceRow({
       <View style={styles.itemHead}>
         <View style={{ flex: 1 }}>
           <AppText variant="label" color={active ? theme.text : theme.textSecondary}>
-            {item.name}
+            {fmt.name(item.name)}
           </AppText>
           <AppText variant="caption">
-            {subtitle} · {active ? 'Offered' : 'Hidden'}
+            {subtitle} · {active ? t('Offered') : t('Hidden')}
           </AppText>
         </View>
         <Switch value={active} disabled={busy} onValueChange={(v) => run({ active: v })} trackColor={{ true: theme.primary, false: theme.border }} />
@@ -129,8 +132,8 @@ function PriceRow({
           keyboardType="number-pad"
           style={[styles.priceInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background, fontFamily: Fonts.sans }]}
         />
-        <Button title="Save" disabled={!dirty} loading={busy} onPress={() => run({ price: parsed })} />
-        <AppText variant="caption">{formatKRW(savedPrice)} now</AppText>
+        <Button title={t('Save')} disabled={!dirty} loading={busy} onPress={() => run({ price: parsed })} />
+        <AppText variant="caption">{t('{price} now', { price: fmt.krw(savedPrice) })}</AppText>
       </View>
       {error ? <Banner message={error} /> : null}
     </Card>

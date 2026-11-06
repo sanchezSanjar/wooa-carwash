@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import { TranslateErrorsFilter } from './i18n';
 import { uploadRoot } from './washes/storage.service';
 
 /** Shared app configuration for main.ts and e2e tests. */
@@ -13,6 +14,7 @@ export function configureApp(app: INestApplication) {
     origin: process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()) ?? true,
     exposedHeaders: ['Content-Disposition'],
   });
+  app.useGlobalFilters(new TranslateErrorsFilter(app.getHttpAdapter()));
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );

@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 import { MemberStatus, Role } from '../enums';
+import { LANGS, type Lang } from '../i18n';
 
 @Schema({ collection: 'members', timestamps: true })
 export class User {
@@ -28,6 +29,10 @@ export class User {
 
   @Prop({ type: String, enum: Object.values(MemberStatus), default: MemberStatus.Active })
   status: MemberStatus;
+
+  /** Language of the member's notifications and SMS. */
+  @Prop({ type: String, enum: LANGS, default: 'ko' })
+  language: Lang;
 
   /** Tokens issued before this moment stop working (password reset, block). */
   @Prop()

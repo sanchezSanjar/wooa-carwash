@@ -11,8 +11,8 @@ import { Radius, Spacing, useTheme } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
-import { formatDay } from '@/lib/format';
 import type { User } from '@/lib/types';
+import { useI18n } from '@/lib/i18n';
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -38,6 +38,7 @@ export default function HomeScreen() {
 
 function MemberHome({ user, tariffs }: { user: User; tariffs: Parameters<typeof TariffCards>[0]['tariffs'] }) {
   const theme = useTheme();
+  const { t, fmt } = useI18n();
   const { data, error, loading } = useApi(
     useCallback(async () => {
       const [cars, subs] = await Promise.all([api.myCars(), api.mySubscriptions()]);
@@ -60,7 +61,7 @@ function MemberHome({ user, tariffs }: { user: User; tariffs: Parameters<typeof 
           <AppText variant="caption">{user.apartmentName}</AppText>
         </View>
         <AppText variant="display" style={{ fontSize: 36, lineHeight: 42 }}>
-          Hello, {user.name.split(' ')[0]}.
+          {t('Hello, {name}.', { name: user.name.split(' ')[0] })}
         </AppText>
       </View>
 
@@ -73,29 +74,29 @@ function MemberHome({ user, tariffs }: { user: User; tariffs: Parameters<typeof 
         <Card>
           <EmptyState
             icon="car-sport-outline"
-            title="Add your first car"
-            message="Tell us where it parks and when it is home, then pick a plan."
-            action={<Button title="Add a car" icon="add" onPress={() => router.push('/car/new')} />}
+            title={t('Add your first car')}
+            message={t('Tell us where it parks and when it is home, then pick a plan.')}
+            action={<Button title={t('Add a car')} icon="add" onPress={() => router.push('/car/new')} />}
           />
         </Card>
       ) : null}
 
       {next.length > 0 ? (
         <View style={{ gap: Spacing.md }}>
-          <SectionTitle>Next washes</SectionTitle>
+          <SectionTitle>{t('Next washes')}</SectionTitle>
           <Card style={{ gap: 0, paddingVertical: Spacing.xs }}>
             {next.map(({ date, sub }, i) => (
               <View
                 key={`${sub.id}-${date}`}
                 style={[styles.washRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }]}>
                 <View style={[styles.dateBox, { backgroundColor: theme.surface }]}>
-                  <AppText variant="label">{formatDay(date)}</AppText>
+                  <AppText variant="label">{fmt.day(date)}</AppText>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <AppText variant="label">{sub.car?.plateNumber ?? 'Car'}</AppText>
+                  <AppText variant="label">{sub.car?.plateNumber ?? t('Car')}</AppText>
                   <AppText variant="caption">
-                    {sub.tariffName}
-                    {sub.extras.length ? ` + ${sub.extras.map((e) => e.name.toLowerCase()).join(', ')}` : ''}
+                    {fmt.name(sub.tariffName)}
+                    {sub.extras.length ? ` + ${sub.extras.map((e) => fmt.name(e.name)).join(', ')}` : ''}
                   </AppText>
                 </View>
               </View>
@@ -108,15 +109,15 @@ function MemberHome({ user, tariffs }: { user: User; tariffs: Parameters<typeof 
         <Card key={c.id} style={styles.prompt}>
           <Ionicons name="calendar-outline" size={20} color={theme.text} />
           <AppText style={{ flex: 1 }}>
-            <AppText variant="label">{c.plateNumber}</AppText> has no wash plan yet.
+            <AppText variant="label">{c.plateNumber}</AppText> {t('has no wash plan yet.')}
           </AppText>
-          <Button title="Choose plan" onPress={() => router.push({ pathname: '/plan/[carId]', params: { carId: c.id } })} />
+          <Button title={t('Choose plan')} onPress={() => router.push({ pathname: '/plan/[carId]', params: { carId: c.id } })} />
         </Card>
       ))}
 
       {data && data.cars.length > 0 && active.length === 0 ? (
         <View style={{ gap: Spacing.md }}>
-          <SectionTitle hint="Prices are per car.">Plans</SectionTitle>
+          <SectionTitle hint={t('Prices are per car.')}>{t('Plans')}</SectionTitle>
           <TariffCards tariffs={tariffs} />
         </View>
       ) : null}

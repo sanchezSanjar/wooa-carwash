@@ -43,7 +43,14 @@ export class DaySheetsService {
     const f = await this.forecasts.findOne({ date, grid }).lean().exec();
     if (!f) return null;
     const threshold = Number(process.env.WEATHER_RAIN_POP ?? 60) || 60;
-    return { summary: f.summary, pop: f.pop, wet: isWet({ pop: f.pop, precipitation: f.precipitation as never }, threshold) };
+    return {
+      summary: f.summary,
+      pop: f.pop,
+      precipitation: f.precipitation,
+      tempMin: f.tempMin ?? null,
+      tempMax: f.tempMax ?? null,
+      wet: isWet({ pop: f.pop, precipitation: f.precipitation as never }, threshold),
+    };
   }
 
   /** The day's sheet: saved workbook, or a draft from the schedule (sorted for walking the route). */

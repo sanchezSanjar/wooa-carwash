@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Fonts, MaxContentWidth, Radius, Spacing, useTheme } from '@/constants/theme';
 import { todayShopDate } from '@/lib/format';
+import { useI18n } from '@/lib/i18n';
 
 type Variant = 'display' | 'title' | 'heading' | 'body' | 'label' | 'caption';
 
@@ -265,13 +266,13 @@ export function DateStrip({
   compact?: boolean;
 }) {
   const theme = useTheme();
+  const { t, fmt } = useI18n();
   const [todayStr] = useState(todayShopDate);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm }}>
       {dates.map((d) => {
-        const day = new Date(`${d}T00:00:00Z`);
-        const weekday = d === todayStr ? 'Today' : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][day.getUTCDay()];
-        const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][day.getUTCMonth()];
+        const chip = fmt.chip(d);
+        const weekday = d === todayStr ? t('Today') : chip.weekday;
         const active = d === value;
         const fg = active ? theme.primaryText : theme.text;
         const sub = active ? theme.primaryText : theme.textSecondary;
@@ -290,15 +291,15 @@ export function DateStrip({
             </AppText>
             {compact ? (
               <AppText variant="label" color={fg}>
-                {month} {day.getUTCDate()}
+                {chip.short}
               </AppText>
             ) : (
               <>
                 <AppText variant="heading" color={fg}>
-                  {day.getUTCDate()}
+                  {chip.day}
                 </AppText>
                 <AppText variant="caption" color={sub}>
-                  {month}
+                  {chip.month}
                 </AppText>
               </>
             )}

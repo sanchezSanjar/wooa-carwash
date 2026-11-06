@@ -6,20 +6,27 @@ import { useEffect } from 'react';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { I18nProvider, useI18n } from '@/lib/i18n';
 
 SplashScreen.preventAutoHideAsync();
 
 function RootStack() {
-  const { ready } = useAuth();
+  const { ready, user, updateProfile } = useAuth();
+  const { ready: langReady, lang, t } = useI18n();
   const scheme = useColorScheme();
   const colors = scheme === 'dark' ? Colors.dark : Colors.light;
   const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
 
   useEffect(() => {
-    if (ready) SplashScreen.hideAsync();
-  }, [ready]);
+    if (ready && langReady) SplashScreen.hideAsync();
+  }, [ready, langReady]);
 
-  if (!ready) return null;
+  // notifications and SMS follow the language the member uses in the app
+  useEffect(() => {
+    if (user && langReady && user.language !== lang) updateProfile({ language: lang }).catch(() => undefined);
+  }, [user, lang, langReady, updateProfile]);
+
+  if (!ready || !langReady) return null;
 
   return (
     <ThemeProvider
@@ -37,12 +44,12 @@ function RootStack() {
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Wooa Carwash' }} />
-        <Stack.Screen name="(auth)/login" options={{ title: 'Log in', presentation: 'modal' }} />
-        <Stack.Screen name="(auth)/register" options={{ title: 'Create account', presentation: 'modal' }} />
-        <Stack.Screen name="(auth)/forgot" options={{ title: 'Reset password', presentation: 'modal' }} />
-        <Stack.Screen name="car/[id]" options={{ title: 'Car' }} />
-        <Stack.Screen name="plan/[carId]" options={{ title: 'Wash plan' }} />
-        <Stack.Screen name="wash/[subscriptionId]/[date]" options={{ title: 'Wash' }} />
+        <Stack.Screen name="(auth)/login" options={{ title: t('Log in'), presentation: 'modal' }} />
+        <Stack.Screen name="(auth)/register" options={{ title: t('Create account'), presentation: 'modal' }} />
+        <Stack.Screen name="(auth)/forgot" options={{ title: t('Reset password'), presentation: 'modal' }} />
+        <Stack.Screen name="car/[id]" options={{ title: t('Car') }} />
+        <Stack.Screen name="plan/[carId]" options={{ title: t('Wash plan') }} />
+        <Stack.Screen name="wash/[subscriptionId]/[date]" options={{ title: t('Wash') }} />
       </Stack>
     </ThemeProvider>
   );
@@ -50,8 +57,10 @@ function RootStack() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootStack />
-    </AuthProvider>
+    <I18nProvider>
+      <AuthProvider>
+        <RootStack />
+      </AuthProvider>
+    </I18nProvider>
   );
 }

@@ -4,7 +4,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { dueDateFor, invoiceLines, monthBounds, monthOf } from '@app/common/billing';
 import { addDays, today } from '@app/common/dates';
-import { NotificationText } from '@app/common/notify';
+import type { Lang } from '@app/common/i18n';
+import { NotificationText, smsText, type NoticeText } from '@app/common/notify';
 import { CarDocument } from '@app/common/schemas/car.schema';
 import { Invoice, InvoiceDocument, InvoiceStatus } from '@app/common/schemas/invoice.schema';
 import { Notification, NotificationType } from '@app/common/schemas/notification.schema';
@@ -78,7 +79,7 @@ export class BillingJob {
       if (!res.upsertedCount) continue;
       created++;
       const invoice = await this.invoices.findOne({ subscription: sub._id, month }).exec();
-      if (invoice) await this.tell(invoice, NotificationType.InvoiceIssued, invoice.dueDate, NotificationText.invoiceIssued(invoice, this.bank));
+      if (invoice) await this.tell(invoice, NotificationType.InvoiceIssued, invoice.dueDate, (lang) => NotificationText.invoiceIssued(invoice, this.bank, lang));
     }
     return created;
   }
@@ -94,7 +95,7 @@ export class BillingJob {
       const marked = await this.invoices.updateOne({ _id: bill._id, dueSoonSentAt: { $exists: false } }, { $set: { dueSoonSentAt: now } });
       if (!marked.modifiedCount) continue;
       sent++;
-      await this.tell(bill, NotificationType.PaymentDue, bill.dueDate, NotificationText.paymentDue(bill, this.bank));
+      await this.tell(bill, NotificationType.PaymentDue, bill.dueDate, (lang) => NotificationText.paymentDue(bill, this.bank, lang));
     }
     return sent;
   }
@@ -115,22 +116,23 @@ export class BillingJob {
       );
       if (!marked.modifiedCount) continue;
       sent++;
-      await this.tell(bill, NotificationType.PaymentOverdue, date, NotificationText.paymentOverdue(bill, this.bank));
+      await this.tell(bill, NotificationType.PaymentOverdue, date, (lang) => NotificationText.paymentOverdue(bill, this.bank, lang));
     }
     return sent;
   }
 
   /** In-app notification plus SMS. A failed SMS is logged and never stops the job. */
-  private async tell(bill: InvoiceDocument, type: NotificationType, date: string, text: { title: string; body: string }) {
+  private async tell(bill: InvoiceDocument, type: NotificationType, date: string, compose: (lang: Lang) => NoticeText) {
+    const member = await this.users.findById(new Types.ObjectId(bill.member)).select('phone language').lean().exec();
+    const text = compose(member?.language ?? 'ko');
     await this.notifications.updateOne(
       { subscription: bill.subscription, date, type },
       { $setOnInsert: { member: bill.member, ...text, read: false } },
       { upsert: true },
     );
-    const member = await this.users.findById(new Types.ObjectId(bill.member)).select('phone').lean().exec();
     if (!member?.phone) return;
     try {
-      await this.sms.send(member.phone, `[Wooa Carwash] ${text.body}`);
+      await this.sms.send(member.phone, smsText(text));
     } catch (err) {
       this.logger.warn(`SMS for bill ${bill.id} failed: ${err instanceof Error ? err.message : String(err)}`);
     }

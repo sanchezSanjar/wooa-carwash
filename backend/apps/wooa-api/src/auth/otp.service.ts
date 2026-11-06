@@ -1,3 +1,5 @@
+import type { Lang } from '@app/common/i18n';
+import { NotificationText } from '@app/common/notify';
 import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
@@ -40,7 +42,7 @@ export class OtpService {
     this.secret = config.getOrThrow<string>('JWT_SECRET');
   }
 
-  async request(rawPhone: string, purpose: OtpPurpose, ip: string): Promise<string> {
+  async request(rawPhone: string, purpose: OtpPurpose, ip: string, lang: Lang = 'ko'): Promise<string> {
     const phone = normalizePhone(rawPhone);
     if (purpose === OtpPurpose.Signup && (await this.users.exists({ phone }))) {
       throw new BadRequestException('This phone number already has an account. Log in or reset your password.');
@@ -66,7 +68,7 @@ export class OtpService {
       expiresAt: new Date(Date.now() + CODE_TTL),
     });
 
-    const text = `[Wooa Carwash] Your code is ${code} (valid for 3 minutes)`;
+    const text = NotificationText.otp(code, lang);
     if (purpose === OtpPurpose.Signup) {
       await this.sms.send(phone, text);
       return OTP_SENT;

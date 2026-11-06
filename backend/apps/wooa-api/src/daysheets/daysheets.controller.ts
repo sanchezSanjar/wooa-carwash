@@ -15,6 +15,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Role } from '@app/common/enums';
+import type { Lang } from '@app/common/i18n';
+import { ReqLang } from '../i18n';
 import { JwtAuthGuard } from '../auth/jwt.strategy';
 import { CurrentUser, Roles, RolesGuard } from '../auth/roles';
 import type { AuthUser } from '../auth/roles';
@@ -42,8 +44,8 @@ export class DaySheetsController {
   @Roles(Role.Admin)
   @ApiQuery({ name: 'from', example: '2026-11-07' })
   @ApiQuery({ name: 'days', required: false, example: 1 })
-  async export(@Query('from') from: string, @Query('days') days?: string) {
-    const { filename, buffer } = await this.xlsx.export(from, Number(days ?? 1));
+  async export(@ReqLang() lang: Lang, @Query('from') from: string, @Query('days') days?: string) {
+    const { filename, buffer } = await this.xlsx.export(from, Number(days ?? 1), lang);
     return new StreamableFile(buffer, {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       disposition: `attachment; filename="${filename}"`,
@@ -57,8 +59,8 @@ export class DaySheetsController {
   @ApiConsumes('multipart/form-data')
   @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024, files: 1 } }))
-  previewImport(@UploadedFile() file?: Express.Multer.File) {
-    return this.xlsx.preview(file);
+  previewImport(@ReqLang() lang: Lang, @UploadedFile() file?: Express.Multer.File) {
+    return this.xlsx.preview(file, lang);
   }
 
   /** Saves the day sheets of a preview. */

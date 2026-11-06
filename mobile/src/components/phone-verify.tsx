@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { formatPhone, isMobile } from '@/lib/format';
 
 import { AppText, Banner, Button, TextField } from './ui';
+import { useI18n } from '@/lib/i18n';
 
 const RESEND_AFTER = 60;
 
@@ -20,6 +21,7 @@ export function PhoneVerify({
   purpose: 'signup' | 'reset';
   onVerified: (phone: string, resetToken?: string) => void;
 }) {
+  const { t } = useI18n();
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [sent, setSent] = useState(false);
@@ -30,24 +32,28 @@ export function PhoneVerify({
 
   useEffect(() => {
     if (wait <= 0) return;
-    const t = setTimeout(() => setWait((w) => w - 1), 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(timer);
   }, [wait]);
 
   const send = async () => {
     if (!isMobile(phone)) {
-      setError('Enter a mobile number like 010-1234-5678');
+      setError(t('Enter a mobile number like 010-1234-5678'));
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      const res = await api.requestOtp(phone, purpose);
+      await api.requestOtp(phone, purpose);
       setSent(true);
-      setInfo(res.message);
+      setInfo(
+        purpose === 'reset'
+          ? t('If this number has an account, we sent a code by SMS. It is valid for 3 minutes.')
+          : t('We sent a code by SMS. It is valid for 3 minutes.'),
+      );
       setWait(RESEND_AFTER);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not send the code');
+      setError(e instanceof Error ? e.message : t('Could not send the code'));
     } finally {
       setBusy(false);
     }
@@ -55,7 +61,7 @@ export function PhoneVerify({
 
   const verify = async () => {
     if (!/^\d{6}$/.test(code)) {
-      setError('Enter the 6-digit code from the SMS');
+      setError(t('Enter the 6-digit code from the SMS'));
       return;
     }
     setBusy(true);
@@ -64,7 +70,7 @@ export function PhoneVerify({
       const res = await api.verifyOtp(phone, purpose, code);
       onVerified(phone, res.resetToken);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not verify the code');
+      setError(e instanceof Error ? e.message : t('Could not verify the code'));
     } finally {
       setBusy(false);
     }
@@ -74,7 +80,7 @@ export function PhoneVerify({
     <View style={{ gap: Spacing.lg }}>
       {error ? <Banner message={error} /> : null}
       <TextField
-        label="Mobile number"
+        label={t('Mobile number')}
         value={phone}
         onChangeText={(v) => {
           setPhone(v);
@@ -90,28 +96,28 @@ export function PhoneVerify({
       />
       {sent ? (
         <>
-          {info ? <AppText variant="caption">{info}. It is valid for 3 minutes.</AppText> : null}
+          {info ? <AppText variant="caption">{info}</AppText> : null}
           <TextField
-            label="Code"
+            label={t('Code')}
             value={code}
             onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
-            placeholder="6 digits"
+            placeholder={t('6 digits')}
             keyboardType="number-pad"
             autoComplete="sms-otp"
             textContentType="oneTimeCode"
             maxLength={6}
             onSubmitEditing={verify}
           />
-          <Button title="Verify" loading={busy} onPress={verify} />
+          <Button title={t('Verify')} loading={busy} onPress={verify} />
           <Button
-            title={wait > 0 ? `Send again in ${wait}s` : 'Send a new code'}
+            title={wait > 0 ? t('Send again in {s}s', { s: wait }) : t('Send a new code')}
             variant="ghost"
             disabled={wait > 0 || busy}
             onPress={send}
           />
         </>
       ) : (
-        <Button title="Send code" loading={busy} onPress={send} />
+        <Button title={t('Send code')} loading={busy} onPress={send} />
       )}
     </View>
   );

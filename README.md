@@ -32,6 +32,7 @@ First admins come from `ADMIN_PHONES` / `ADMIN_EMAILS` in `backend/.env`; after 
 - **Day sheet**: the admin's workbook for one day. It starts as the schedule; admins reorder cars, assign washers, add notes, pull in missed or upcoming cars, or move a car to another day, then save. Only that day's sheet is saved — cars, members and plans never change. A moved wash keeps its scheduled date and records the day it was really washed.
 - **Excel**: “Export to Excel” downloads 1, 7 or 14 days, one tab per day. Edit the yellow columns (order, day, washer, note) — change the Day to move a car — and “Import from Excel” shows every change and problem before anything is saved. Imports only change day sheets, never cars, members, plans or wash results.
 - **Bills**: on the 1st (and daily for new plans) the batch server issues each car's bill — a plan that starts mid-month pays only for the washes left that month. Bills are due on `PAYMENT_DUE_DAY` (at least 7 days after issue). Members get an SMS when it's issued, 3 days before it's due and weekly while overdue. Payment happens outside the app (bank transfer, cash); admins mark bills paid.
+- **Languages**: Korean and English. The app starts in the phone's language (Korean unless the phone is set to English) and has a 한국어 / English switch on the Account page and in the website header. The choice is saved on the member's account, so notifications, SMS, API error messages and Excel files follow it; new members get Korean texts until they switch. App texts live in `mobile/src/lib/ko.ts` (keys are the English text), server texts in `backend/libs/common/src/i18n.ts` and `notify.ts`. Plan and extra names the shop started with are translated; names an admin types are shown as typed.
 - **Weather**: forecasts from the Korea Meteorological Administration are stored for the next days and shown on the day sheets; the evening before, members with a wash get a notice when rain or snow is likely.
 
 ## Batch schedule (Korea time)
@@ -56,6 +57,7 @@ npm run start:dev        # API on :3000, docs at /docs
 npm run start:dev:batch  # batch server (second terminal)
 ```
 
+- The app sends `Accept-Language: ko` or `en`; the API answers errors, Excel exports and import previews in that language (English when the header is missing).
 - Without Solapi keys SMS runs in log-only mode (codes appear in the server log); without a KMA key weather is skipped.
 - `npm run build` builds both apps into `dist/apps/`; run them with `npm run start:prod` and `npm run start:prod:batch`. Node 22+ is required.
 - Washer photos are stored on the server in `UPLOAD_DIR` and served at `/uploads/...`; keep that folder outside the code so deploys don't remove it.
@@ -64,7 +66,7 @@ npm run start:dev:batch  # batch server (second terminal)
 | Area | Endpoints |
 | --- | --- |
 | Auth | `POST /auth/otp/request`, `/auth/otp/verify`, `/auth/register`, `/auth/login`, `/auth/reset-password` · `GET /auth/me` |
-| Members | `PATCH /members/me` · `POST /members/me/password` · admin: `GET/POST /members`, `GET/PATCH /members/:id` |
+| Members | `PATCH /members/me` (incl. `language`: `ko` / `en`) · `POST /members/me/password` · admin: `GET/POST /members`, `GET/PATCH /members/:id` |
 | Catalog | `GET /tariffs`, `/extras` · admin: `GET /admin/tariffs`, `/admin/extras`, `POST/PATCH /tariffs`, `/extras` |
 | Cars | `GET /cars/me` · `POST /cars` · `PATCH/DELETE /cars/:id` · admin: `GET /cars?ownerId=` |
 | Plans | `POST /subscriptions` · `GET /subscriptions/me` · `PATCH /subscriptions/:id`, `/:id/tariff`, `/:id/cancel` · admin: `GET /subscriptions` |

@@ -35,7 +35,20 @@ export interface BillableSubscription {
  * The month's bill for a subscription. A plan that starts mid-month pays only for the washes left
  * in that month (e.g. 2 of 4 washes = half the tariff). Amounts are rounded to 10 won.
  */
-export function invoiceLines(sub: BillableSubscription, month: string): { label: string; amount: number }[] {
+export interface BillLine {
+  /** English text, kept for older bills; the app builds the text in the member's language from the fields below. */
+  label: string;
+  amount: number;
+  kind: 'plan' | 'extra';
+  /** Tariff or extra service name. */
+  name: string;
+  /** Washes billed. */
+  washes: number;
+  /** Washes in a full month (plan line). */
+  washesPerMonth?: number;
+}
+
+export function invoiceLines(sub: BillableSubscription, month: string): BillLine[] {
   const startMonth = monthOf(sub.startDate);
   if (month < startMonth) return [];
   const washes = month === startMonth ? washesInMonth(sub.schedule, month, sub.startDate) : sub.washesPerMonth;
@@ -43,14 +56,18 @@ export function invoiceLines(sub: BillableSubscription, month: string): { label:
   const share = Math.min(1, washes / sub.washesPerMonth);
   const round10 = (n: number) => Math.round(n / 10) * 10;
 
-  const lines = [
+  const lines: BillLine[] = [
     {
       label: share < 1 ? `${sub.tariffName} plan (${washes} of ${sub.washesPerMonth} washes)` : `${sub.tariffName} plan`,
       amount: round10(sub.tariffPrice * share),
+      kind: 'plan',
+      name: sub.tariffName,
+      washes,
+      washesPerMonth: sub.washesPerMonth,
     },
   ];
   for (const e of sub.extras) {
-    lines.push({ label: `${e.name} × ${washes}`, amount: round10(e.price * washes) });
+    lines.push({ label: `${e.name} × ${washes}`, amount: round10(e.price * washes), kind: 'extra', name: e.name, washes });
   }
   return lines;
 }

@@ -22,7 +22,7 @@ import { Radius, Spacing, useTheme } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { api } from '@/lib/api';
 import { confirm } from '@/lib/confirm';
-import { formatDay, formatKRW, STATUS_LABEL, upcomingDates, WEEKDAYS, WEEKDAYS_LONG } from '@/lib/format';
+import { upcomingDates } from '@/lib/format';
 import {
   emptyPicks,
   picksProblem,
@@ -32,6 +32,7 @@ import {
   type DayPicks,
 } from '@/lib/schedule';
 import type { Car, Extra, Subscription, Tariff } from '@/lib/types';
+import { useI18n } from '@/lib/i18n';
 
 /** Monday first, the way people plan their week. */
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -53,12 +54,13 @@ export default function PlanScreen() {
     };
   }, [carId]);
   const { data, error, loading } = useApi(load);
+  const { t } = useI18n();
 
   if (loading) return <Loading />;
   if (error || !data?.car) {
     return (
       <Screen>
-        <EmptyState icon="alert-circle-outline" title="Car not found" message={error ?? undefined} />
+        <EmptyState icon="alert-circle-outline" title={t('Car not found')} message={error ?? undefined} />
       </Screen>
     );
   }
@@ -85,6 +87,7 @@ function PlanEditor({
   extras: Extra[];
 }) {
   const theme = useTheme();
+  const { t: tr, fmt } = useI18n();
   const isNew = !sub;
   const startDates = useMemo(() => upcomingDates(21), []);
   const [tariffId, setTariffId] = useState(sub?.tariffId ?? tariffs[1]?.id ?? tariffs[0]?.id);
@@ -102,7 +105,8 @@ function PlanEditor({
       : tariffs.find((t) => t.id === tariffId);
   const perMonth = tariff?.washesPerMonth ?? 0;
   const schedule = picksToSchedule(picks);
-  const problem = tariff ? picksProblem(picks, perMonth) : 'Choose a plan';
+  const rawProblem = tariff ? picksProblem(picks, perMonth) : 'Choose a plan';
+  const problem = rawProblem ? tr(rawProblem) : null;
   const preview = problem ? [] : previewWashDates(schedule, isNew ? startDate : startDates[0], 6);
 
   const extraPrice = (id: string) =>
@@ -135,7 +139,7 @@ function PlanEditor({
       }
       router.back();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save the plan');
+      setError(e instanceof Error ? e.message : tr('Could not save the plan'));
     } finally {
       setBusy(false);
     }
@@ -143,7 +147,7 @@ function PlanEditor({
 
   const cancelPlan = async () => {
     if (!sub) return;
-    const ok = await confirm('Cancel wash plan?', `Washes for ${car.plateNumber} will stop.`, 'Cancel plan');
+    const ok = await confirm(tr('Cancel wash plan?'), tr('Washes for {plate} will stop.', { plate: car.plateNumber }), tr('Cancel plan'));
     if (!ok) return;
     setBusy(true);
     setError(null);
@@ -151,22 +155,22 @@ function PlanEditor({
       await api.cancelSubscription(sub.id);
       router.back();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not cancel the plan');
+      setError(e instanceof Error ? e.message : tr('Could not cancel the plan'));
       setBusy(false);
     }
   };
 
   return (
     <Screen contentStyle={{ maxWidth: 720 }}>
-      <Stack.Screen options={{ title: isNew ? 'Choose a wash plan' : 'Manage wash plan' }} />
-      <CarCard car={car}>{sub ? <Badge label="Active" tone="success" /> : null}</CarCard>
+      <Stack.Screen options={{ title: isNew ? tr('Choose a wash plan') : tr('Manage wash plan') }} />
+      <CarCard car={car}>{sub ? <Badge label={tr('Active')} tone="success" /> : null}</CarCard>
 
-      <SectionTitle hint={isNew ? 'Monthly price per car.' : 'Switch to another plan any time; the new price applies from the next bill.'}>
-        1. Plan
+      <SectionTitle hint={isNew ? tr('Monthly price per car.') : tr('Switch to another plan any time; the new price applies from the next bill.')}>
+        {tr('1. Plan')}
       </SectionTitle>
       {sub ? (
         <AppText variant="caption">
-          Current: {sub.tariffName} · {sub.washesPerMonth} washes a month · since {formatDay(sub.startDate)}
+          {tr('Current: {name} · {n} washes a month · since {date}', { name: fmt.name(sub.tariffName), n: sub.washesPerMonth, date: fmt.day(sub.startDate) })}
         </AppText>
       ) : null}
       {tariffs.length ? (
@@ -183,11 +187,11 @@ function PlanEditor({
                   styles.tariff,
                   { backgroundColor: selected ? theme.primarySoft : theme.card, borderColor: selected ? theme.primary : theme.border },
                 ]}>
-                <AppText variant="heading">{t.name}</AppText>
+                <AppText variant="heading">{fmt.name(t.name)}</AppText>
                 <AppText variant="label" color={theme.primary}>
-                  {formatKRW(t.price)} / month
+                  {tr('{price} / month', { price: fmt.krw(t.price) })}
                 </AppText>
-                <AppText variant="caption">{t.washesPerMonth} washes per month</AppText>
+                <AppText variant="caption">{tr('{n} washes per month', { n: t.washesPerMonth })}</AppText>
               </Pressable>
             );
           })}
@@ -196,19 +200,19 @@ function PlanEditor({
 
       {tariff ? (
         <>
-          <SectionTitle hint={scheduleHint(perMonth)}>2. Wash days</SectionTitle>
+          <SectionTitle hint={tr(scheduleHint(perMonth))}>{tr('2. Wash days')}</SectionTitle>
           <DayPicker perMonth={perMonth} picks={picks} onChange={setPicks} />
         </>
       ) : null}
 
       {isNew ? (
         <>
-          <SectionTitle>3. Start date</SectionTitle>
+          <SectionTitle>{tr('3. Start date')}</SectionTitle>
           <DateStrip dates={startDates} value={startDate} onChange={setStartDate} />
         </>
       ) : null}
 
-      <SectionTitle hint="Done with every wash of this car.">{isNew ? '4. Extra services' : '3. Extra services'}</SectionTitle>
+      <SectionTitle hint={tr('Done with every wash of this car.')}>{isNew ? tr('4. Extra services') : tr('3. Extra services')}</SectionTitle>
       <Card style={{ gap: Spacing.sm }}>
         {extras.map((e) => {
           const on = extraIds.includes(e.id);
@@ -216,10 +220,10 @@ function PlanEditor({
             <Pressable key={e.id} onPress={() => toggleExtra(e.id)} style={styles.extraRow} accessibilityRole="checkbox" accessibilityState={{ checked: on }}>
               <Ionicons name={on ? 'checkbox' : 'square-outline'} size={22} color={on ? theme.primary : theme.textSecondary} />
               <View style={{ flex: 1 }}>
-                <AppText variant="label">{e.name}</AppText>
-                {e.description ? <AppText variant="caption">{e.description}</AppText> : null}
+                <AppText variant="label">{fmt.name(e.name)}</AppText>
+                {e.description ? <AppText variant="caption">{tr(e.description)}</AppText> : null}
               </View>
-              <AppText variant="caption">+{formatKRW(e.price)} / wash</AppText>
+              <AppText variant="caption">{tr('+{price} / wash', { price: fmt.krw(e.price) })}</AppText>
             </Pressable>
           );
         })}
@@ -227,36 +231,36 @@ function PlanEditor({
 
       <Card style={{ gap: Spacing.sm, borderColor: theme.primary }}>
         <View style={styles.totalRow}>
-          <AppText variant="label">{tariff?.name ?? 'Plan'}</AppText>
-          <AppText variant="label">{formatKRW(tariff?.price ?? 0)}</AppText>
+          <AppText variant="label">{tariff ? fmt.name(tariff.name) : tr('Plan')}</AppText>
+          <AppText variant="label">{fmt.krw(tariff?.price ?? 0)}</AppText>
         </View>
         {extrasPerWash > 0 ? (
           <View style={styles.totalRow}>
             <AppText variant="caption">
-              Extras {formatKRW(extrasPerWash)} × {perMonth} washes
+              {tr('Extras {price} × {n} washes', { price: fmt.krw(extrasPerWash), n: perMonth })}
             </AppText>
-            <AppText variant="caption">{formatKRW(extrasPerWash * perMonth)}</AppText>
+            <AppText variant="caption">{fmt.krw(extrasPerWash * perMonth)}</AppText>
           </View>
         ) : null}
         <View style={[styles.totalRow, { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border, paddingTop: Spacing.sm }]}>
-          <AppText variant="heading">Monthly total</AppText>
+          <AppText variant="heading">{tr('Monthly total')}</AppText>
           <AppText variant="heading" color={theme.primary}>
-            {formatKRW(monthly)}
+            {fmt.krw(monthly)}
           </AppText>
         </View>
         {preview.length > 0 ? (
-          <AppText variant="caption">Next washes: {preview.map(formatDay).join(' · ')}</AppText>
+          <AppText variant="caption">{tr('Next washes: {list}', { list: preview.map(fmt.day).join(' · ') })}</AppText>
         ) : null}
       </Card>
 
       {error ? <Banner message={error} /> : null}
       {problem ? <AppText variant="caption" style={{ textAlign: 'center' }}>{problem}</AppText> : null}
-      <Button title={isNew ? 'Start wash plan' : tariffChanged ? `Switch to ${tariff?.name}` : 'Save changes'} disabled={!!problem} loading={busy} onPress={submit} />
-      {sub ? <Button title="Cancel wash plan" variant="danger" disabled={busy} onPress={cancelPlan} /> : null}
+      <Button title={isNew ? tr('Start wash plan') : tariffChanged ? tr('Switch to {name}', { name: fmt.name(tariff?.name ?? '') }) : tr('Save changes')} disabled={!!problem} loading={busy} onPress={submit} />
+      {sub ? <Button title={tr('Cancel wash plan')} variant="danger" disabled={busy} onPress={cancelPlan} /> : null}
 
       {sub && sub.history.length > 0 ? (
         <>
-          <SectionTitle>Recent washes</SectionTitle>
+          <SectionTitle>{tr('Recent washes')}</SectionTitle>
           <Card style={{ gap: Spacing.sm }}>
             {sub.history.map((h) => (
               <Pressable
@@ -265,14 +269,14 @@ function PlanEditor({
                 accessibilityRole="button"
                 onPress={() => router.push({ pathname: '/wash/[subscriptionId]/[date]', params: { subscriptionId: sub.id, date: h.date } })}>
                 <View style={{ flex: 1 }}>
-                  <AppText variant="label">{formatDay(h.date)}</AppText>
+                  <AppText variant="label">{fmt.day(h.date)}</AppText>
                   <AppText variant="caption">
-                    {h.photos ? `${h.photos} photo${h.photos > 1 ? 's' : ''}` : 'No photos'}
-                    {h.status === 'done' && !h.rating ? ' · tap to rate' : ''}
+                    {h.photos ? fmt.count(h.photos, '{n} photo', '{n} photos') : tr('No photos')}
+                    {h.status === 'done' && !h.rating ? tr(' · tap to rate') : ''}
                   </AppText>
                 </View>
                 {h.rating ? <Stars value={h.rating} size={14} /> : null}
-                <Badge label={STATUS_LABEL[h.status]} tone={h.status === 'done' ? 'success' : 'neutral'} />
+                <Badge label={fmt.status(h.status)} tone={h.status === 'done' ? 'success' : 'neutral'} />
                 <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
               </Pressable>
             ))}
@@ -298,16 +302,17 @@ function DayPicker({
   picks: DayPicks;
   onChange: (p: DayPicks) => void;
 }) {
+  const { t, fmt } = useI18n();
   if (perMonth === 4) {
     return (
       <Card>
-        <AppText variant="label">Every week on</AppText>
+        <AppText variant="label">{t('Every week on')}</AppText>
         <WeekdayRow
           selected={picks.everyWeek}
           onToggle={(d) => onChange({ ...emptyPicks(), everyWeek: [d] })}
         />
         {picks.everyWeek[0] !== undefined ? (
-          <AppText variant="caption">Every {WEEKDAYS_LONG[picks.everyWeek[0]]} (1st–4th of the month)</AppText>
+          <AppText variant="caption">{t('Every {day} (1st–4th of the month)', { day: fmt.weekdayLong(picks.everyWeek[0]) })}</AppText>
         ) : null}
       </Card>
     );
@@ -320,18 +325,18 @@ function DayPicker({
       onChange({ ...emptyPicks(), ...(d === undefined ? {} : useEven ? { evenWeeks: [d] } : { oddWeeks: [d] }) });
     return (
       <Card>
-        <AppText variant="label">Day</AppText>
+        <AppText variant="label">{t('Day')}</AppText>
         <WeekdayRow selected={day === undefined ? [] : [day]} onToggle={(d) => set(d, even)} />
         <AppText variant="label" style={{ marginTop: Spacing.sm }}>
-          Weeks
+          {t('Weeks')}
         </AppText>
         <View style={styles.wrap}>
-          <Chip label="1st & 3rd" selected={!even} onPress={() => set(day, false)} />
-          <Chip label="2nd & 4th" selected={even} onPress={() => set(day, true)} />
+          <Chip label={t('1st & 3rd')} selected={!even} onPress={() => set(day, false)} />
+          <Chip label={t('2nd & 4th')} selected={even} onPress={() => set(day, true)} />
         </View>
         {day !== undefined ? (
           <AppText variant="caption">
-            {even ? '2nd and 4th' : '1st and 3rd'} {WEEKDAYS_LONG[day]} of every month
+            {t(even ? '2nd and 4th {day} of every month' : '1st and 3rd {day} of every month', { day: fmt.weekdayLong(day) })}
           </AppText>
         ) : null}
       </Card>
@@ -347,11 +352,11 @@ function DayPicker({
   return (
     <Card style={{ gap: Spacing.md }}>
       <View style={{ gap: Spacing.xs }}>
-        <AppText variant="label">Weeks 1 & 3 · choose 2 days</AppText>
+        <AppText variant="label">{t('Weeks 1 & 3 · choose 2 days')}</AppText>
         <WeekdayRow selected={picks.oddWeeks} disabled={picks.evenWeeks} onToggle={toggleOdd} />
       </View>
       <View style={{ gap: Spacing.xs }}>
-        <AppText variant="label">Weeks 2 & 4 · choose 1 day</AppText>
+        <AppText variant="label">{t('Weeks 2 & 4 · choose 1 day')}</AppText>
         <WeekdayRow
           selected={picks.evenWeeks}
           disabled={picks.oddWeeks}
@@ -371,12 +376,13 @@ function WeekdayRow({
   disabled?: number[];
   onToggle: (d: number) => void;
 }) {
+  const { fmt } = useI18n();
   return (
     <View style={styles.wrap}>
       {WEEK_ORDER.map((d) => (
         <Chip
           key={d}
-          label={WEEKDAYS[d]}
+          label={fmt.weekday(d)}
           selected={selected.includes(d)}
           disabled={disabled.includes(d)}
           onPress={() => onToggle(d)}

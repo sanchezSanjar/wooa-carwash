@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import type { AppNotification } from '@/lib/types';
 
 import { AppText, Button, Card, SectionTitle } from './ui';
+import { useI18n } from '@/lib/i18n';
 
 const SHOWN = 5;
 
@@ -23,6 +24,7 @@ const ICONS: Partial<Record<AppNotification['type'], keyof typeof Ionicons.glyph
 /** Wash reminders (from the batch server) and "your car is washed" messages. */
 export function Updates() {
   const theme = useTheme();
+  const { t } = useI18n();
   const { data, setData } = useApi(useCallback(() => api.myNotifications(), []));
   const [busy, setBusy] = useState(false);
 
@@ -41,8 +43,8 @@ export function Updates() {
   return (
     <View style={{ gap: Spacing.md }}>
       <View style={styles.head}>
-        <SectionTitle>{data.unread > 0 ? `Updates (${data.unread} new)` : 'Updates'}</SectionTitle>
-        {data.unread > 0 ? <Button title="Mark all read" variant="ghost" loading={busy} onPress={markRead} /> : null}
+        <SectionTitle>{data.unread > 0 ? t('Updates ({n} new)', { n: data.unread }) : t('Updates')}</SectionTitle>
+        {data.unread > 0 ? <Button title={t('Mark all read')} variant="ghost" loading={busy} onPress={markRead} /> : null}
       </View>
       <Card style={{ gap: 0, paddingVertical: Spacing.xs }}>
         {data.items.slice(0, SHOWN).map((n, i) => (

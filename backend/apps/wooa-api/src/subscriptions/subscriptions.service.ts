@@ -12,7 +12,7 @@ import { CatalogService } from '../catalog/catalog.service';
 import { ExtraDocument } from '@app/common/schemas/catalog.schema';
 import { isValidDate, today } from '@app/common/dates';
 import { AuthUser, Role } from '../auth/roles';
-import { UserDocument } from '@app/common/schemas/user.schema';
+import { User, UserDocument } from '@app/common/schemas/user.schema';
 import { NotificationText } from '@app/common/notify';
 import { Notification, NotificationType } from '@app/common/schemas/notification.schema';
 import {
@@ -41,6 +41,7 @@ export class SubscriptionsService {
     @InjectModel(Wash.name) private readonly washes: Model<Wash>,
     @InjectModel(Car.name) private readonly carModel: Model<Car>,
     @InjectModel(Notification.name) private readonly notifications: Model<Notification>,
+    @InjectModel(User.name) private readonly userModel: Model<User>,
     private readonly cars: CarsService,
     private readonly catalog: CatalogService,
   ) {}
@@ -241,10 +242,11 @@ export class SubscriptionsService {
       .exec();
     if (wash.status === 'done') {
       const car = await this.carModel.findById(sub.car).exec();
+      const owner = await this.userModel.findById(sub.member).select('language').lean().exec();
       if (car) {
         await this.notifications.updateOne(
           doneNotice,
-          { $setOnInsert: { member: sub.member, ...NotificationText.washed(car, dto.washedOn ?? dto.date), read: false } },
+          { $setOnInsert: { member: sub.member, ...NotificationText.washed(car, dto.washedOn ?? dto.date, owner?.language ?? 'ko'), read: false } },
           { upsert: true },
         );
       }

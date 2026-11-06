@@ -46,9 +46,22 @@ export class ApiError extends Error {
 }
 
 let authToken: string | null = null;
+let language = 'ko';
 let onUnauthorized: (() => void) | null = null;
 
 export const getAuthToken = () => authToken;
+
+/** Headers every API call sends: login token and the app language (errors and Excel files follow it). */
+export const apiHeaders = (): Record<string, string> => ({
+  'Accept-Language': language,
+  ...(authToken && { Authorization: `Bearer ${authToken}` }),
+});
+
+export const currentLang = () => (language === 'en' ? 'en' : 'ko') as 'ko' | 'en';
+
+export function setApiLanguage(lang: string) {
+  language = lang;
+}
 
 export function setAuthToken(token: string | null) {
   authToken = token;
@@ -67,12 +80,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       headers: {
         Accept: 'application/json',
         ...(body !== undefined && !isForm && { 'Content-Type': 'application/json' }),
-        ...(authToken && { Authorization: `Bearer ${authToken}` }),
+        ...apiHeaders(),
       },
       body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
     });
   } catch {
-    throw new ApiError('Cannot reach the server. Check your connection and try again.', 0);
+    throw new ApiError(language === 'ko' ? '서버에 연결할 수 없습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.' : 'Cannot reach the server. Check your connection and try again.', 0);
   }
 
   const text = await res.text();
@@ -81,7 +94,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     if (res.status === 401 && authToken) onUnauthorized?.();
     const raw = (data as { message?: string | string[] } | undefined)?.message;
     const message = Array.isArray(raw) ? raw[0] : raw;
-    throw new ApiError(message ? capitalize(message) : `Request failed (${res.status})`, res.status);
+    throw new ApiError(message ? capitalize(message) : language === 'ko' ? `요청을 처리하지 못했습니다 (${res.status})` : `Request failed (${res.status})`, res.status);
   }
   return data as T;
 }
@@ -114,13 +127,13 @@ export const api = {
   members: (search?: string) =>
     request<User[]>('GET', `/members${search ? `?search=${encodeURIComponent(search)}` : ''}`),
   member: (id: string) => request<User>('GET', `/members/${id}`),
-  createMember: (body: { name: string; phone: string; apartmentName: string; role: Role; email?: string }) =>
+  createMember: (body: { name: string; phone: string; apartmentName: string; role: Role; email?: string; language?: 'ko' | 'en' }) =>
     request<User>('POST', '/members', body),
   updateMember: (id: string, body: Partial<Pick<User, 'name' | 'phone' | 'apartmentName' | 'role' | 'status'>> & { email?: string }) =>
     request<User>('PATCH', `/members/${id}`, body),
   carsForMember: (ownerId: string) => request<Car[]>('GET', `/cars?ownerId=${ownerId}`),
   me: () => request<User>('GET', '/auth/me'),
-  updateProfile: (body: { name?: string; apartmentName?: string; email?: string }) =>
+  updateProfile: (body: { name?: string; apartmentName?: string; email?: string; language?: 'ko' | 'en' }) =>
     request<User>('PATCH', '/members/me', body),
 
   tariffs: () => request<Tariff[]>('GET', '/tariffs'),
