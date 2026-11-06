@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { forwardRef } from 'react';
+import { forwardRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Fonts, MaxContentWidth, Radius, Spacing, useTheme } from '@/constants/theme';
+import { todayShopDate } from '@/lib/format';
 
 type Variant = 'display' | 'title' | 'heading' | 'body' | 'label' | 'caption';
 
@@ -264,11 +265,12 @@ export function DateStrip({
   compact?: boolean;
 }) {
   const theme = useTheme();
+  const [todayStr] = useState(todayShopDate);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm }}>
-      {dates.map((d, i) => {
+      {dates.map((d) => {
         const day = new Date(`${d}T00:00:00Z`);
-        const weekday = i === 0 ? 'Today' : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][day.getUTCDay()];
+        const weekday = d === todayStr ? 'Today' : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][day.getUTCDay()];
         const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][day.getUTCMonth()];
         const active = d === value;
         const fg = active ? theme.primaryText : theme.text;

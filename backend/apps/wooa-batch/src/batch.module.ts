@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DatabaseModule } from '@app/common/database/database.module';
 import { Car, CarSchema } from '@app/common/schemas/car.schema';
+import { DaySheet, DaySheetSchema } from '@app/common/schemas/daysheet.schema';
 import { Notification, NotificationSchema } from '@app/common/schemas/notification.schema';
 import {
   Subscription,
@@ -27,6 +28,7 @@ import { WashReminderJob } from './jobs/wash-reminder.job';
       { name: Car.name, schema: CarSchema },
       { name: User.name, schema: UserSchema },
       { name: Notification.name, schema: NotificationSchema },
+      { name: DaySheet.name, schema: DaySheetSchema },
     ]),
   ],
   controllers: [BatchController],

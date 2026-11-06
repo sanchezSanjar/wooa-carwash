@@ -6,6 +6,9 @@ import type {
   Car,
   CarInput,
   DayPlanItem,
+  DaySheet,
+  SheetCandidate,
+  StaffMember,
   PhotoKind,
   ReviewItem,
   Role,
@@ -163,7 +166,15 @@ export const api = {
   changeTariff: (id: string, body: { tariffId: string; schedule: ScheduleDay[] }) =>
     request<Subscription>('PATCH', `/subscriptions/${id}/tariff`, body),
 
+  daySheet: (date: string) => request<DaySheet>('GET', `/daysheets/${date}`),
+  saveDaySheet: (date: string, rows: { subscriptionId: string; scheduledDate: string; washerId?: string; note?: string }[]) =>
+    request<DaySheet>('PUT', `/daysheets/${date}`, { rows }),
+  moveWash: (date: string, body: { subscriptionId: string; scheduledDate: string; toDate: string }) =>
+    request<{ from: DaySheet; to: DaySheet }>('POST', `/daysheets/${date}/move`, body),
+  sheetCandidates: (date: string) => request<SheetCandidate[]>('GET', `/daysheets/${date}/candidates`),
+  sheetStaff: () => request<StaffMember[]>('GET', '/daysheets/staff'),
+
   dayPlan: (date: string) => request<DayPlanItem[]>('GET', `/washes?date=${encodeURIComponent(date)}`),
-  setWashStatus: (body: { subscriptionId: string; date: string; status: WashStatus; note?: string }) =>
+  setWashStatus: (body: { subscriptionId: string; date: string; status: WashStatus; note?: string; washedOn?: string }) =>
     request<{ status: WashStatus }>('PATCH', '/washes', body),
 };

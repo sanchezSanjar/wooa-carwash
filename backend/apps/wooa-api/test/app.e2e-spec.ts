@@ -401,3 +401,92 @@ describe('subscriptions', () => {
     await request(http).delete(`/cars/${carId}`).set(auth(kim)).expect(204);
   });
 });
+
+describe('day sheets', () => {
+  let day: string;
+  let next: string;
+  let leeSub: string;
+  let washerToken: string;
+
+  it('builds a draft sheet from the schedule', async () => {
+    // first date from today whose weekday occurrence is 1-4 (washed by an every-week plan)
+    day = today();
+    while (weekdayOccurrence(day) > 4) day = addDays(day, 1);
+    next = addDays(day, 1);
+
+    const standard = tariffs.find((t) => t.washesPerMonth === 4)!;
+    const leeCar = await request(http)
+      .post('/cars')
+      .set(auth(lee))
+      .send({ ...car, plateNumber: '77다 7777', buildingNumber: '203', parkingFloor: 'B1' })
+      .expect(201);
+    leeSub = (
+      await request(http)
+        .post('/subscriptions')
+        .set(auth(lee))
+        .send({ carId: leeCar.body.id, tariffId: standard.id, startDate: today(), schedule: [{ weekday: weekday(day), weeks: [1, 2, 3, 4] }] })
+        .expect(201)
+    ).body.id;
+
+    washerToken = (await request(http).post('/auth/login').send({ phone: '010-6666-7777', password: 'washer-pass-1' }).expect(200)).body.accessToken;
+
+    const sheet = await request(http).get(`/daysheets/${day}`).set(auth(washerToken)).expect(200);
+    expect(sheet.body.saved).toBe(false);
+    const row = sheet.body.rows.find((r: { subscriptionId: string }) => r.subscriptionId === leeSub);
+    expect(row).toMatchObject({ scheduledDate: day, moved: false, status: 'planned', car: { plateNumber: '77다 7777' } });
+
+    await request(http).get(`/daysheets/${day}`).set(auth(kim)).expect(403);
+    await request(http).put(`/daysheets/${day}`).set(auth(washerToken)).send({ rows: [] }).expect(403);
+    const staff = await request(http).get('/daysheets/staff').set(auth(admin)).expect(200);
+    expect(staff.body.map((s: { name: string }) => s.name)).toEqual(expect.arrayContaining(['Boss', 'Choi Washer']));
+  });
+
+  it('moves a car to another day and back without touching its plan', async () => {
+    const moved = await request(http)
+      .post(`/daysheets/${day}/move`)
+      .set(auth(admin))
+      .send({ subscriptionId: leeSub, scheduledDate: day, toDate: next })
+      .expect(201);
+    expect(moved.body.from.rows.some((r: { subscriptionId: string }) => r.subscriptionId === leeSub)).toBe(false);
+    expect(moved.body.to.rows.find((r: { subscriptionId: string }) => r.subscriptionId === leeSub)).toMatchObject({
+      scheduledDate: day,
+      moved: true,
+    });
+
+    const candidates = await request(http).get(`/daysheets/${day}/candidates`).set(auth(admin)).expect(200);
+    const back = candidates.body.find((c: { subscriptionId: string; scheduledDate: string }) => c.subscriptionId === leeSub && c.scheduledDate === day);
+    expect(back).toBeTruthy();
+
+    // put it back on its own day with a washer and a note: removed from the other sheet automatically
+    const washerId = (await request(http).get('/daysheets/staff').set(auth(admin)).expect(200)).body.find(
+      (s: { name: string }) => s.name === 'Choi Washer',
+    ).id;
+    const saved = await request(http)
+      .put(`/daysheets/${day}`)
+      .set(auth(admin))
+      .send({ rows: [{ subscriptionId: leeSub, scheduledDate: day, washerId, note: 'Gate code 1234' }] })
+      .expect(200);
+    expect(saved.body.rows[0]).toMatchObject({ washerName: 'Choi Washer', note: 'Gate code 1234', moved: false });
+    const other = await request(http).get(`/daysheets/${next}`).set(auth(admin)).expect(200);
+    expect(other.body.rows.some((r: { subscriptionId: string }) => r.subscriptionId === leeSub)).toBe(false);
+
+    await request(http)
+      .put(`/daysheets/${day}`)
+      .set(auth(admin))
+      .send({ rows: [{ subscriptionId: leeSub, scheduledDate: next }] })
+      .expect(400); // not a wash day of that car
+
+    const plan = await request(http).get('/subscriptions/me').set(auth(lee)).expect(200);
+    expect(plan.body[0].schedule).toEqual([{ weekday: weekday(day), weeks: [1, 2, 3, 4] }]);
+  });
+
+  it('records the day a moved car was actually washed', async () => {
+    await request(http)
+      .patch('/washes')
+      .set(auth(washerToken))
+      .send({ subscriptionId: leeSub, date: day, status: 'done', washedOn: next })
+      .expect(200);
+    const detail = await request(http).get('/washes/detail').query({ subscriptionId: leeSub, date: day }).set(auth(lee)).expect(200);
+    expect(detail.body).toMatchObject({ status: 'done', washedOn: next });
+  });
+});

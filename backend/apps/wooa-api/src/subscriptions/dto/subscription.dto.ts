@@ -108,6 +108,11 @@ export class SetWashStatusDto {
   @Matches(DATE_RE, { message: 'date must be YYYY-MM-DD' })
   date: string;
 
+  @ApiPropertyOptional({ example: '2026-11-11', description: 'Day the car was actually washed, when moved on a day sheet' })
+  @IsOptional()
+  @Matches(DATE_RE, { message: 'washedOn must be YYYY-MM-DD' })
+  washedOn?: string;
+
   @ApiProperty({ enum: ['planned', 'done', 'skipped'], description: 'planned clears a recorded outcome' })
   @IsIn(['planned', 'done', 'skipped'])
   status: 'planned' | 'done' | 'skipped';

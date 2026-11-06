@@ -133,3 +133,38 @@ export interface ReviewItem {
   apartmentName: string;
   review: WashReview | null;
 }
+
+export interface DaySheetRow {
+  subscriptionId: string;
+  /** The wash's date in the car's schedule; differs from the sheet date when moved. */
+  scheduledDate: string;
+  moved: boolean;
+  washerId: string | null;
+  washerName: string | null;
+  note: string;
+  status: WashStatus;
+  washedOn: string | null;
+  photos: number;
+  rating: number | null;
+  tariffName: string;
+  extras: string[];
+  car: Car;
+  member: { id: string; name: string; phone: string; apartmentName: string };
+}
+
+export interface DaySheet {
+  date: string;
+  saved: boolean;
+  updatedAt: string | null;
+  rows: DaySheetRow[];
+}
+
+export interface SheetCandidate extends DaySheetRow {
+  reason: 'missed' | 'skipped' | 'today' | 'upcoming';
+}
+
+export interface StaffMember {
+  id: string;
+  name: string;
+  role: Role;
+}
