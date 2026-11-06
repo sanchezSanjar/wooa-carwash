@@ -197,3 +197,13 @@ export interface InvoiceMonth {
   totals: { billed: number; paid: number; unpaid: number; count: number; unpaidCount: number };
   invoices: Invoice[];
 }
+
+export interface SheetImportPreview {
+  filename: string | null;
+  rowsRead: number;
+  days: string[];
+  unchanged: number;
+  changes: { type: 'order' | 'washer' | 'note' | 'moved' | 'removed' | 'added'; plateNumber: string; date: string; detail: string }[];
+  problems: { sheet: string; row: number; plateNumber: string; message: string }[];
+  plan: { date: string; rows: { subscriptionId: string; scheduledDate: string; washerId?: string; note?: string }[] }[];
+}

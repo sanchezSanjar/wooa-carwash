@@ -55,3 +55,25 @@ export class MoveWashDto {
   @Matches(DATE_RE, { message: 'toDate must be YYYY-MM-DD' })
   toDate: string;
 }
+
+export class ImportDayDto {
+  @ApiProperty({ example: '2026-11-07' })
+  @Matches(DATE_RE, { message: 'date must be YYYY-MM-DD' })
+  date: string;
+
+  @ApiProperty({ type: [DaySheetRowDto] })
+  @IsArray()
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => DaySheetRowDto)
+  rows: DaySheetRowDto[];
+}
+
+export class ApplyImportDto {
+  @ApiProperty({ type: [ImportDayDto], description: 'The "plan" returned by the import preview' })
+  @IsArray()
+  @ArrayMaxSize(28)
+  @ValidateNested({ each: true })
+  @Type(() => ImportDayDto)
+  plan: ImportDayDto[];
+}
