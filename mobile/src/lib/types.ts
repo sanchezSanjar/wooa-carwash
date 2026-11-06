@@ -67,6 +67,16 @@ export interface Subscription {
   history: { date: string; status: WashStatus; note: string }[];
 }
 
+export interface AppNotification {
+  id: string;
+  type: 'wash_reminder' | 'wash_done';
+  title: string;
+  body: string;
+  date: string;
+  read: boolean;
+  createdAt: string | null;
+}
+
 export interface DayPlanItem {
   subscriptionId: string;
   date: string;

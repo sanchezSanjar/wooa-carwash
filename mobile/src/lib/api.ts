@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
 import type {
+  AppNotification,
   AuthResponse,
   Car,
   CarInput,
@@ -108,6 +109,9 @@ export const api = {
   updateSubscription: (id: string, body: { schedule?: ScheduleDay[]; extraIds?: string[] }) =>
     request<Subscription>('PATCH', `/subscriptions/${id}`, body),
   cancelSubscription: (id: string) => request<Subscription>('PATCH', `/subscriptions/${id}/cancel`),
+
+  myNotifications: () => request<{ unread: number; items: AppNotification[] }>('GET', '/notifications/me'),
+  markNotificationsRead: () => request<{ updated: number }>('PATCH', '/notifications/read-all'),
 
   dayPlan: (date: string) => request<DayPlanItem[]>('GET', `/washes?date=${encodeURIComponent(date)}`),
   setWashStatus: (body: { subscriptionId: string; date: string; status: WashStatus; note?: string }) =>

@@ -4,7 +4,10 @@ Subscription car wash for apartment complexes: washers come to the residents' pa
 
 ## Structure
 
-- `backend/` — NestJS API (MongoDB Atlas, Mongoose, JWT)
+- `backend/` — NestJS monorepo (MongoDB Atlas, Mongoose, JWT)
+  - `apps/wooa-api` — REST API used by the app and website
+  - `apps/wooa-batch` — scheduled jobs (Korea time): 20:00 reminders for tomorrow's washes, 23:30 unrecorded washes marked skipped
+  - `libs/common` — shared schemas, schedule rules, notification texts and the database module (`@app/common/...`)
 - `mobile/` — React Native app (Expo, Expo Router, TypeScript) for iOS, Android and web
 
 ## How it works
@@ -25,12 +28,15 @@ Subscription car wash for apartment complexes: washers come to the residents' pa
 cd backend
 cp .env.example .env   # fill in MONGODB_URI, JWT_SECRET, ADMIN_EMAILS
 npm install
-npm run start:dev
+npm run start:dev        # API
+npm run start:dev:batch  # batch server (second terminal)
 ```
 
 - API docs (Swagger): http://localhost:3000/docs
 - Default tariffs and extras are created on first start if their collections are empty.
-- `npm test` runs unit tests and `npm run test:e2e` runs API tests against an in-memory MongoDB.
+- `npm run build` builds both apps into `dist/apps/`; run them with `npm run start:prod` and `npm run start:prod:batch`.
+- `npm test` runs unit tests and `npm run test:e2e` runs API and batch tests against an in-memory MongoDB.
+- Node 22 or newer is required (the bundles load the ESM-only Nest packages).
 
 | Method | Path | Access |
 | --- | --- | --- |
@@ -42,8 +48,9 @@ npm run start:dev
 | POST | `/subscriptions` · GET `/subscriptions/me` · PATCH `/subscriptions/:id`, `/subscriptions/:id/cancel` | member |
 | GET | `/subscriptions` (all active) | admin |
 | GET | `/washes?date=YYYY-MM-DD` · PATCH `/washes` (done / skipped / planned) | admin |
+| GET | `/notifications/me` · PATCH `/notifications/read-all` | member |
 
-MongoDB collections: `members`, `cars`, `tariffs`, `extras`, `subscriptions`, `washes`. Planned washes are calculated from each subscription's schedule; `washes` only stores outcomes (done or skipped).
+MongoDB collections: `members`, `cars`, `tariffs`, `extras`, `subscriptions`, `washes`, `notifications`. Planned washes are calculated from each subscription's schedule; `washes` only stores outcomes (done or skipped).
 
 ## Mobile and web
 
