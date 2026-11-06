@@ -9,6 +9,8 @@ import { DaySheet } from '@app/common/schemas/daysheet.schema';
 import { Invoice } from '@app/common/schemas/invoice.schema';
 import { SmsService } from '@app/common/sms/sms.service';
 import { BillingJob } from '../src/jobs/billing.job';
+import { WeatherJob } from '../src/jobs/weather.job';
+import { Forecast } from '@app/common/schemas/forecast.schema';
 import { Notification } from '@app/common/schemas/notification.schema';
 import { Subscription, Wash } from '@app/common/schemas/subscription.schema';
 import { User } from '@app/common/schemas/user.schema';
@@ -33,6 +35,8 @@ let dueMarked: Types.ObjectId;
 beforeAll(async () => {
   mongo = await MongoMemoryServer.create();
   process.env.MONGODB_URI = mongo.getUri('wooa-batch-test');
+  process.env.KMA_SERVICE_KEY = 'test-key';
+  delete process.env.SOLAPI_API_KEY;
   const { BatchModule } = await import('../src/batch.module');
   const moduleRef = await Test.createTestingModule({ imports: [BatchModule] }).compile();
   app = moduleRef.createNestApplication();
@@ -182,5 +186,30 @@ describe('billing job', () => {
     const overdue = await notifications.find({ type: 'payment_overdue' }).lean();
     expect(overdue).toHaveLength(6);
     expect(overdue[0].body).toMatch(/Ignore this if you already paid/);
+  });
+});
+
+describe('weather job', () => {
+  const kma = (items: { category: string; fcstDate: string; fcstTime: string; fcstValue: string }[]) =>
+    (async () => new Response(JSON.stringify({ response: { header: { resultCode: '00' }, body: { items: { item: items } } } }))) as unknown as typeof fetch;
+
+  it('stores forecasts and warns members with a wash on a rainy tomorrow', async () => {
+    const job = app.get(WeatherJob);
+    const forecasts = app.get<Model<Forecast>>(getModelToken(Forecast.name));
+    job.fetcher = kma([
+      { category: 'POP', fcstDate: '20261102', fcstTime: '1200', fcstValue: '80' },
+      { category: 'PTY', fcstDate: '20261102', fcstTime: '1200', fcstValue: '1' },
+      { category: 'POP', fcstDate: '20261103', fcstTime: '1200', fcstValue: '10' },
+    ]);
+    const evening = new Date('2026-11-01T08:30:00Z'); // Sun Nov 1, 17:30 Korea
+    expect(await job.refresh(evening)).toBe(2);
+    expect(await forecasts.findOne({ date: '2026-11-02', grid: '60,127' }).lean()).toMatchObject({ pop: 80, precipitation: 'rain' });
+
+    expect(await job.alert(evening)).toBe(2); // the two Monday Nov 2 washes
+    expect(await job.alert(evening)).toBe(0); // once per wash
+    const sent = await notifications.find({ type: 'weather_alert' }).lean();
+    expect(sent[0].title).toBe('Weather for your wash: Rain likely (80%)');
+
+    expect(await job.alert(new Date('2026-11-02T08:30:00Z'))).toBe(0); // Tuesday is dry
   });
 });

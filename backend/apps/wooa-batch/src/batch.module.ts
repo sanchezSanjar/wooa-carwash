@@ -6,6 +6,7 @@ import { DatabaseModule } from '@app/common/database/database.module';
 import { SmsModule } from '@app/common/sms/sms.module';
 import { Car, CarSchema } from '@app/common/schemas/car.schema';
 import { DaySheet, DaySheetSchema } from '@app/common/schemas/daysheet.schema';
+import { Forecast, ForecastSchema } from '@app/common/schemas/forecast.schema';
 import { Invoice, InvoiceSchema } from '@app/common/schemas/invoice.schema';
 import { Notification, NotificationSchema } from '@app/common/schemas/notification.schema';
 import {
@@ -18,6 +19,7 @@ import { User, UserSchema } from '@app/common/schemas/user.schema';
 import { BatchController } from './batch.controller';
 import { BillingJob } from './jobs/billing.job';
 import { CloseOutJob } from './jobs/close-out.job';
+import { WeatherJob } from './jobs/weather.job';
 import { WashReminderJob } from './jobs/wash-reminder.job';
 
 @Module({
@@ -34,9 +36,10 @@ import { WashReminderJob } from './jobs/wash-reminder.job';
       { name: Notification.name, schema: NotificationSchema },
       { name: DaySheet.name, schema: DaySheetSchema },
       { name: Invoice.name, schema: InvoiceSchema },
+      { name: Forecast.name, schema: ForecastSchema },
     ]),
   ],
   controllers: [BatchController],
-  providers: [WashReminderJob, CloseOutJob, BillingJob],
+  providers: [WashReminderJob, CloseOutJob, BillingJob, WeatherJob],
 })
 export class BatchModule {}

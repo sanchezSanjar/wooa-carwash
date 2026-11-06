@@ -7,6 +7,9 @@ import { PlannedWash, washesForDate, washKey } from '@app/common/planner';
 import { isWashDay } from '@app/common/schedule';
 import { CarDocument } from '@app/common/schemas/car.schema';
 import { DaySheet } from '@app/common/schemas/daysheet.schema';
+import { Forecast } from '@app/common/schemas/forecast.schema';
+import { readGrids } from '@app/common/weather/grids';
+import { isWet } from '@app/common/weather/kma';
 import {
   Subscription,
   SubscriptionDocument,
@@ -31,7 +34,17 @@ export class DaySheetsService {
     @InjectModel(Subscription.name) private readonly subs: Model<Subscription>,
     @InjectModel(Wash.name) private readonly washes: Model<Wash>,
     @InjectModel(User.name) private readonly users: Model<User>,
+    @InjectModel(Forecast.name) private readonly forecasts: Model<Forecast>,
   ) {}
+
+  /** The day's forecast for the default area (refreshed by the batch server), or null. */
+  private async weather(date: string) {
+    const grid = readGrids(process.env).fallback;
+    const f = await this.forecasts.findOne({ date, grid }).lean().exec();
+    if (!f) return null;
+    const threshold = Number(process.env.WEATHER_RAIN_POP ?? 60) || 60;
+    return { summary: f.summary, pop: f.pop, wet: isWet({ pop: f.pop, precipitation: f.precipitation as never }, threshold) };
+  }
 
   /** The day's sheet: saved workbook, or a draft from the schedule (sorted for walking the route). */
   async get(date: string) {
@@ -43,6 +56,7 @@ export class DaySheetsService {
     return {
       date,
       saved,
+      weather: await this.weather(date),
       updatedAt: (sheet as { updatedAt?: Date } | null)?.updatedAt?.toISOString() ?? null,
       rows: hydrated,
     };

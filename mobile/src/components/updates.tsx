@@ -5,10 +5,20 @@ import { StyleSheet, View } from 'react-native';
 import { Spacing, useTheme } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { api } from '@/lib/api';
+import type { AppNotification } from '@/lib/types';
 
 import { AppText, Button, Card, SectionTitle } from './ui';
 
 const SHOWN = 5;
+
+const ICONS: Partial<Record<AppNotification['type'], keyof typeof Ionicons.glyphMap>> = {
+  wash_done: 'checkmark-circle-outline',
+  wash_reminder: 'notifications-outline',
+  weather_alert: 'rainy-outline',
+  invoice_issued: 'receipt-outline',
+  payment_due: 'receipt-outline',
+  payment_overdue: 'alert-circle-outline',
+};
 
 /** Wash reminders (from the batch server) and "your car is washed" messages. */
 export function Updates() {
@@ -40,9 +50,9 @@ export function Updates() {
             key={n.id}
             style={[styles.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }]}>
             <Ionicons
-              name={n.type === 'wash_done' ? 'checkmark-circle-outline' : 'notifications-outline'}
+              name={ICONS[n.type] ?? 'notifications-outline'}
               size={20}
-              color={n.type === 'wash_done' ? theme.success : theme.text}
+              color={n.type === 'wash_done' ? theme.success : n.type === 'payment_overdue' ? theme.warning : theme.text}
             />
             <View style={{ flex: 1, gap: 2 }}>
               <AppText variant="label">{n.title}</AppText>

@@ -41,6 +41,14 @@ export const NotificationText = {
       body: `We have not received ${won(b.amount)} for ${b.plateNumber} (${monthName(b.month)}), due ${dayLabel(b.dueDate)}.${pay(bank)} Ignore this if you already paid.`,
     };
   },
+  weather(car: Pick<Car, 'plateNumber'>, date: string, forecast: { summary: string }) {
+    return {
+      title: `Weather for your wash: ${forecast.summary.split(' · ')[0]}`,
+      body:
+        `${dayLabel(date)}: ${forecast.summary}. We still plan to wash ${car.plateNumber}; ` +
+        'if we move the wash because of the weather, we will tell you.',
+    };
+  },
   reminder(car: Pick<Car, 'plateNumber' | 'buildingNumber' | 'parkingFloor'>, date: string, extras: string[]) {
     return {
       title: `Wash tomorrow: ${car.plateNumber}`,
