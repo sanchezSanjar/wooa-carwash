@@ -1,15 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { CarCard } from '@/components/car-card';
-import { AppText, Badge, Banner, Button, Card, Chip, EmptyState, Loading, Screen, SectionTitle } from '@/components/ui';
+import {
+  AppText,
+  Badge,
+  Banner,
+  Button,
+  Card,
+  Chip,
+  DateStrip,
+  EmptyState,
+  Loading,
+  Screen,
+  SectionTitle,
+} from '@/components/ui';
 import { Radius, Spacing, useTheme } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { api } from '@/lib/api';
 import { confirm } from '@/lib/confirm';
-import { dateChip, formatDay, formatKRW, STATUS_LABEL, upcomingDates, WEEKDAYS, WEEKDAYS_LONG } from '@/lib/format';
+import { formatDay, formatKRW, STATUS_LABEL, upcomingDates, WEEKDAYS, WEEKDAYS_LONG } from '@/lib/format';
 import {
   emptyPicks,
   picksProblem,
@@ -186,31 +198,7 @@ function PlanEditor({
       {isNew ? (
         <>
           <SectionTitle>3. Start date</SectionTitle>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm }}>
-            {startDates.map((d, i) => {
-              const chip = dateChip(d);
-              const active = d === startDate;
-              return (
-                <Pressable
-                  key={d}
-                  onPress={() => setStartDate(d)}
-                  style={[
-                    styles.dateChip,
-                    { backgroundColor: active ? theme.primary : theme.card, borderColor: active ? theme.primary : theme.border },
-                  ]}>
-                  <AppText variant="caption" color={active ? '#fff' : theme.textSecondary}>
-                    {i === 0 ? 'Today' : chip.weekday}
-                  </AppText>
-                  <AppText variant="heading" color={active ? '#fff' : theme.text}>
-                    {chip.day}
-                  </AppText>
-                  <AppText variant="caption" color={active ? '#fff' : theme.textSecondary}>
-                    {chip.month}
-                  </AppText>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          <DateStrip dates={startDates} value={startDate} onChange={setStartDate} />
         </>
       ) : null}
 
@@ -383,7 +371,6 @@ function WeekdayRow({
 const styles = StyleSheet.create({
   tariffs: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
   tariff: { flexGrow: 1, flexBasis: 180, padding: Spacing.lg, borderRadius: Radius.lg, borderWidth: 1.5, gap: 2 },
-  dateChip: { width: 64, paddingVertical: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, alignItems: 'center' },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   extraRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.md },

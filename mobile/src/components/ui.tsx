@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Fonts, MaxContentWidth, Radius, Spacing, useTheme } from '@/constants/theme';
 
-type Variant = 'title' | 'heading' | 'body' | 'label' | 'caption';
+type Variant = 'display' | 'title' | 'heading' | 'body' | 'label' | 'caption';
 
 export function AppText({
   variant = 'body',
@@ -30,10 +30,14 @@ export function AppText({
 }: TextProps & { variant?: Variant; color?: string }) {
   const theme = useTheme();
   const isSecondary = variant === 'caption';
+  const serif = variant === 'display' || variant === 'title';
   return (
     <Text
       style={[
-        { color: color ?? (isSecondary ? theme.textSecondary : theme.text), fontFamily: Fonts.sans },
+        {
+          color: color ?? (isSecondary ? theme.textSecondary : theme.text),
+          fontFamily: serif ? Fonts.serif : Fonts.sans,
+        },
         textStyles[variant],
         style,
       ]}
@@ -43,7 +47,8 @@ export function AppText({
 }
 
 const textStyles = StyleSheet.create({
-  title: { fontSize: 28, lineHeight: 34, fontWeight: '700', letterSpacing: -0.4 },
+  display: { fontSize: 44, lineHeight: 50, fontWeight: '400', letterSpacing: -0.8 },
+  title: { fontSize: 30, lineHeight: 36, fontWeight: '400', letterSpacing: -0.4 },
   heading: { fontSize: 18, lineHeight: 24, fontWeight: '700' },
   body: { fontSize: 15, lineHeight: 22, fontWeight: '400' },
   label: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
@@ -246,6 +251,62 @@ export function Chip({
   );
 }
 
+/** Horizontal row of day chips (Today, Sat 7 …). */
+export function DateStrip({
+  dates,
+  value,
+  onChange,
+  compact,
+}: {
+  dates: string[];
+  value: string;
+  onChange: (date: string) => void;
+  compact?: boolean;
+}) {
+  const theme = useTheme();
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm }}>
+      {dates.map((d, i) => {
+        const day = new Date(`${d}T00:00:00Z`);
+        const weekday = i === 0 ? 'Today' : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][day.getUTCDay()];
+        const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][day.getUTCMonth()];
+        const active = d === value;
+        const fg = active ? theme.primaryText : theme.text;
+        const sub = active ? theme.primaryText : theme.textSecondary;
+        return (
+          <Pressable
+            key={d}
+            onPress={() => onChange(d)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            style={[
+              compact ? styles.dateChipCompact : styles.dateChip,
+              { backgroundColor: active ? theme.primary : theme.card, borderColor: active ? theme.primary : theme.border },
+            ]}>
+            <AppText variant="caption" color={sub}>
+              {weekday}
+            </AppText>
+            {compact ? (
+              <AppText variant="label" color={fg}>
+                {month} {day.getUTCDate()}
+              </AppText>
+            ) : (
+              <>
+                <AppText variant="heading" color={fg}>
+                  {day.getUTCDate()}
+                </AppText>
+                <AppText variant="caption" color={sub}>
+                  {month}
+                </AppText>
+              </>
+            )}
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 export function SectionTitle({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
     <View style={{ gap: 2 }}>
@@ -333,6 +394,14 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     padding: Spacing.md,
     borderRadius: Radius.md,
+  },
+  dateChip: { width: 64, paddingVertical: Spacing.sm, borderRadius: Radius.md, borderWidth: 1, alignItems: 'center' },
+  dateChipCompact: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    alignItems: 'center',
   },
   chip: {
     minHeight: 40,

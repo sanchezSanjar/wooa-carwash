@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router/js-tabs';
-import type { ColorValue } from 'react-native';
+import { Platform, useWindowDimensions, type ColorValue } from 'react-native';
 
+import { TopNav } from '@/components/top-nav';
 import { useTheme } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 
@@ -17,11 +18,15 @@ export default function TabsLayout() {
   const theme = useTheme();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const { width } = useWindowDimensions();
+  const wide = Platform.OS === 'web' && width >= 768;
 
   return (
     <Tabs
+      tabBar={wide ? (props) => <TopNav {...(props as unknown as Parameters<typeof TopNav>[0])} /> : undefined}
       screenOptions={{
         headerShown: false,
+        tabBarPosition: wide ? 'top' : 'bottom',
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.textSecondary,
         tabBarStyle: { backgroundColor: theme.card, borderTopColor: theme.border },
