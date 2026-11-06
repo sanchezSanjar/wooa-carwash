@@ -5,6 +5,7 @@ import { Model, Types } from 'mongoose';
 import type { INestApplication } from '@nestjs/common';
 
 import { Car } from '@app/common/schemas/car.schema';
+import { DaySheet } from '@app/common/schemas/daysheet.schema';
 import { Notification } from '@app/common/schemas/notification.schema';
 import { Subscription, Wash } from '@app/common/schemas/subscription.schema';
 import { User } from '@app/common/schemas/user.schema';
@@ -114,5 +115,27 @@ describe('close-out job', () => {
     expect(day).toHaveLength(2);
     expect(day.find((w) => w.subscription.equals(due))).toMatchObject({ status: 'skipped', note: CLOSE_OUT_NOTE });
     expect(day.find((w) => w.subscription.equals(dueMarked))).toMatchObject({ status: 'done' });
+  });
+});
+
+describe('jobs follow the day sheets', () => {
+  it('skips a wash moved to another day and reminds it the evening before the new day', async () => {
+    const sheets = app.get<Model<DaySheet>>(getModelToken(DaySheet.name));
+    // Mon Nov 16 (3rd Monday) wash of `due` moved to Tue Nov 17
+    await sheets.create({ date: '2026-11-17', rows: [{ subscription: due, scheduledDate: '2026-11-16', note: '' }] });
+
+    const closeOut = app.get(CloseOutJob);
+    const closed = await closeOut.run(new Date('2026-11-16T14:30:00Z')); // Nov 16, 23:30 Korea
+    expect(closed).toBe(2); // dueMarked and 55가 5555 (started Nov 5); `due` was moved
+    expect(await washes.exists({ subscription: due, date: '2026-11-16' })).toBeFalsy();
+
+    const reminder = app.get(WashReminderJob);
+    expect(await reminder.run(new Date('2026-11-16T11:00:00Z'))).toBe(1); // evening of Nov 16 → Nov 17 sheet
+    const sent = await notifications.findOne({ subscription: due, date: '2026-11-16', type: 'wash_reminder' }).lean();
+    expect(sent?.body).toMatch(/Tue, Nov 17/);
+
+    // close-out on the new day marks it skipped with the day it was due to be washed
+    expect(await closeOut.run(new Date('2026-11-17T14:30:00Z'))).toBe(1);
+    expect(await washes.findOne({ subscription: due, date: '2026-11-16' }).lean()).toMatchObject({ status: 'skipped', washedOn: '2026-11-17' });
   });
 });

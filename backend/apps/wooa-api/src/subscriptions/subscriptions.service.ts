@@ -232,7 +232,9 @@ export class SubscriptionsService {
             status: dto.status,
             note: dto.note?.trim() ?? '',
             recordedBy: new Types.ObjectId(admin.userId),
+            ...(dto.washedOn && dto.washedOn !== dto.date ? { washedOn: dto.washedOn } : {}),
           },
+          ...(!dto.washedOn || dto.washedOn === dto.date ? { $unset: { washedOn: '' } } : {}),
         },
         { upsert: true, returnDocument: 'after' },
       )
@@ -242,7 +244,7 @@ export class SubscriptionsService {
       if (car) {
         await this.notifications.updateOne(
           doneNotice,
-          { $setOnInsert: { member: sub.member, ...NotificationText.washed(car, dto.date), read: false } },
+          { $setOnInsert: { member: sub.member, ...NotificationText.washed(car, dto.washedOn ?? dto.date), read: false } },
           { upsert: true },
         );
       }
