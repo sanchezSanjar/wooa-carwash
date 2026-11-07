@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import bcrypt from 'bcryptjs';
 import { isValidObjectId, Model } from 'mongoose';
 import { MemberStatus, Role } from '@app/common/enums';
-import type { Lang } from '@app/common/i18n';
+import { brand, type Lang } from '@app/common/i18n';
 import { formatPhone, normalizePhone } from '@app/common/phone';
 import { User, UserDocument } from '@app/common/schemas/user.schema';
 import { SmsService } from '@app/common/sms/sms.service';
@@ -103,10 +103,10 @@ export class UsersService {
         .send(
           phone,
           user.language === 'en'
-            ? `[Wooa Carwash] An account was created for ${formatPhone(phone)}. ` +
-                'Open the Wooa Carwash app, tap "Forgot password" and set your password with an SMS code.'
-            : `[Wooa Carwash] ${formatPhone(phone)} 번호로 계정이 만들어졌습니다. ` +
-                'Wooa Carwash 앱에서 "비밀번호 찾기"를 누르고 문자 인증번호로 비밀번호를 설정해 주세요.',
+            ? `[${brand('en')}] An account was created for ${formatPhone(phone)}. ` +
+                `Open the ${brand('en')} app, tap "Forgot password" and set your password with an SMS code.`
+            : `[${brand('ko')}] ${formatPhone(phone)} 번호로 계정이 만들어졌습니다. ` +
+                `${brand('ko')} 앱에서 "비밀번호 찾기"를 누르고 문자 인증번호로 비밀번호를 설정해 주세요.`,
         )
         .catch(() => undefined); // the account exists either way; the admin can tell the member
     }

@@ -43,7 +43,7 @@ function RootStack() {
       }}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Wooa Carwash' }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: t('Wooa Carwash') }} />
         <Stack.Screen name="(auth)/login" options={{ title: t('Log in'), presentation: 'modal' }} />
         <Stack.Screen name="(auth)/register" options={{ title: t('Create account'), presentation: 'modal' }} />
         <Stack.Screen name="(auth)/forgot" options={{ title: t('Reset password'), presentation: 'modal' }} />

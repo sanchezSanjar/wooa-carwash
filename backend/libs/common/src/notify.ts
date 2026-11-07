@@ -1,5 +1,5 @@
 import type { Car } from './schemas/car.schema';
-import { catalogName, dayLabel, forecastSummary, monthName, won, type ForecastFacts, type Lang } from './i18n';
+import { brand, catalogName, dayLabel, forecastSummary, monthName, won, type ForecastFacts, type Lang } from './i18n';
 
 export { dayLabel } from './i18n';
 
@@ -114,10 +114,10 @@ export const NotificationText = {
   /** SMS verification code. */
   otp(code: string, lang: Lang = 'ko'): string {
     return lang === 'ko'
-      ? `[Wooa Carwash] 인증번호는 ${code}입니다 (3분간 유효)`
-      : `[Wooa Carwash] Your code is ${code} (valid for 3 minutes)`;
+      ? `[${brand(lang)}] 인증번호는 ${code}입니다 (3분간 유효)`
+      : `[${brand(lang)}] Your code is ${code} (valid for 3 minutes)`;
   },
 };
 
 /** SMS text for a notification. */
-export const smsText = (text: NoticeText) => `[Wooa Carwash] ${text.body}`;
+export const smsText = (text: NoticeText, lang: Lang = 'ko') => `[${brand(lang)}] ${text.body}`;

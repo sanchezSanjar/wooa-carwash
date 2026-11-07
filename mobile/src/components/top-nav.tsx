@@ -30,7 +30,7 @@ export function TopNav({ state, descriptors, navigation }: TabBarProps) {
       <View style={styles.inner}>
         <Pressable onPress={() => navigation.navigate('index')} accessibilityRole="link">
           <AppText variant="title" style={{ fontSize: 22, lineHeight: 28 }}>
-            Wooa Carwash
+            {t('Wooa Carwash')}
           </AppText>
         </Pressable>
         <View style={styles.links}>

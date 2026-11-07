@@ -124,7 +124,8 @@ export class BillingJob {
   /** In-app notification plus SMS. A failed SMS is logged and never stops the job. */
   private async tell(bill: InvoiceDocument, type: NotificationType, date: string, compose: (lang: Lang) => NoticeText) {
     const member = await this.users.findById(new Types.ObjectId(bill.member)).select('phone language').lean().exec();
-    const text = compose(member?.language ?? 'ko');
+    const lang = member?.language ?? 'ko';
+    const text = compose(lang);
     await this.notifications.updateOne(
       { subscription: bill.subscription, date, type },
       { $setOnInsert: { member: bill.member, ...text, read: false } },
@@ -132,7 +133,7 @@ export class BillingJob {
     );
     if (!member?.phone) return;
     try {
-      await this.sms.send(member.phone, smsText(text));
+      await this.sms.send(member.phone, smsText(text, lang));
     } catch (err) {
       this.logger.warn(`SMS for bill ${bill.id} failed: ${err instanceof Error ? err.message : String(err)}`);
     }

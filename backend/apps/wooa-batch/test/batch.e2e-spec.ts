@@ -168,7 +168,7 @@ describe('billing job', () => {
     // started Nov 5: only Mon Nov 16 is left of its two November washes
     expect(bills[3]).toMatchObject({ amount: 25000, lines: [{ label: 'Basic plan (1 of 2 washes)', amount: 20000 }, { amount: 5000 }] });
     expect(sms.outbox.length - smsBefore).toBe(4);
-    expect(sms.outbox.at(-1)?.text).toMatch(/^\[Wooa Carwash\] .+ 차량의 11월 세차 요금은 .+원이며, 납부 기한은 11월 10일 \(화\)입니다/);
+    expect(sms.outbox.at(-1)?.text).toMatch(/^\[우아세차\] .+ 차량의 11월 세차 요금은 .+원이며, 납부 기한은 11월 10일 \(화\)입니다/);
   });
 
   it('reminds before the due date once, and weekly while overdue', async () => {

@@ -2,6 +2,9 @@
 export type Lang = 'ko' | 'en';
 export const LANGS: readonly Lang[] = ['ko', 'en'];
 
+/** The shop's name as customers see it. */
+export const brand = (lang: Lang) => (lang === 'ko' ? '우아세차' : 'Wooa Carwash');
+
 /** Language from an Accept-Language header ("ko-KR,ko;q=0.9" → ko). Anything that is not Korean is English. */
 export function pickLang(header?: string | string[] | null): Lang {
   const value = (Array.isArray(header) ? header[0] : header) ?? '';

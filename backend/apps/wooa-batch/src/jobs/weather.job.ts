@@ -101,7 +101,7 @@ export class WeatherJob {
       if (!res.upsertedCount) continue;
       alerted++;
       if (this.sendSms && member.phone) {
-        await this.sms.send(member.phone, smsText(text)).catch(() => undefined);
+        await this.sms.send(member.phone, smsText(text, member.language ?? 'ko')).catch(() => undefined);
       }
     }
     return alerted;

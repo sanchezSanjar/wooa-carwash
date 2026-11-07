@@ -1,5 +1,6 @@
 {
   "ios": {
+    "CFBundleDisplayName": "우아세차",
     "NSCameraUsageDescription": "세차 전후 차량 사진을 찍기 위해 카메라를 사용합니다.",
     "NSPhotoLibraryUsageDescription": "세차 기록에 차량 사진을 첨부하기 위해 사진을 사용합니다."
   }

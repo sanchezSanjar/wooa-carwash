@@ -128,7 +128,7 @@ describe('sms sign-up and login', () => {
   it('answers in Korean when the app asks for it', async () => {
     const ko = { 'Accept-Language': 'ko' };
     await request(http).post('/auth/otp/request').set(ko).send({ phone: '010-2468-1357', purpose: 'signup' }).expect(200);
-    expect(sms.outbox.at(-1)?.text).toMatch(/^\[Wooa Carwash\] 인증번호는 \d{6}입니다/);
+    expect(sms.outbox.at(-1)?.text).toMatch(/^\[우아세차\] 인증번호는 \d{6}입니다/);
 
     const wrong = await request(http).post('/auth/login').set(ko).send({ phone: '010-1111-2222', password: 'nope-nope' }).expect(401);
     expect(wrong.body.message).toBe('전화번호 또는 비밀번호가 올바르지 않습니다');
