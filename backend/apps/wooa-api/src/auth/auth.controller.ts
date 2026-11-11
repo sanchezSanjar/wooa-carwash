@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Ip, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Lang } from '@app/common/i18n';
 import { ReqLang } from '../i18n';
 import { AuthService } from './auth.service';
@@ -13,7 +14,11 @@ import type { AuthUser } from './roles';
  * Sign-up:  POST /auth/otp/request {phone, purpose: signup} → SMS → /auth/otp/verify (signupToken) → /auth/register
  * Reset:    POST /auth/otp/request {phone, purpose: reset} → SMS → /auth/otp/verify (resetToken) → /auth/reset-password
  */
+/** Per IP address: 20 calls a minute to each endpoint below (the rest of the API allows 300). */
+const AUTH_LIMIT = { default: { limit: 20, ttl: 60_000 } };
+
 @ApiTags('auth')
+@Throttle(AUTH_LIMIT)
 @Controller('auth')
 export class AuthController {
   constructor(
