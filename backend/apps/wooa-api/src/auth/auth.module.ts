@@ -9,6 +9,7 @@ import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard, JwtStrategy } from './jwt.strategy';
+import { LoginAttempts } from './login-attempts';
 import { OtpService } from './otp.service';
 
 @Module({
@@ -28,7 +29,7 @@ import { OtpService } from './otp.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, OtpService, JwtStrategy, JwtAuthGuard],
+  providers: [AuthService, OtpService, JwtStrategy, JwtAuthGuard, LoginAttempts],
   exports: [JwtAuthGuard],
 })
 export class AuthModule {}

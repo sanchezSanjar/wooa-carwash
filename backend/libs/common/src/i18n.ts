@@ -104,6 +104,9 @@ const KO_MESSAGES: Record<string, string> = {
   'The code has expired. Request a new one.': '인증번호가 만료되었습니다. 새 인증번호를 요청해 주세요.',
   'Verify your phone number with the SMS code first': '먼저 문자 인증번호로 전화번호를 인증해 주세요',
   'Too many codes requested. Try again later.': '인증번호 요청이 너무 많습니다. 나중에 다시 시도해 주세요.',
+  'Too many requests. Try again in a minute.': '요청이 너무 많습니다. 1분 후에 다시 시도해 주세요.',
+  'Too many wrong passwords. Try again in 15 minutes or reset your password.':
+    '비밀번호를 여러 번 틀렸습니다. 15분 후에 다시 시도하거나 비밀번호를 재설정해 주세요.',
   'Wait a minute before requesting another code.': '1분 후에 다시 요청해 주세요.',
   'Could not send the SMS. Please try again.': '문자를 보내지 못했습니다. 다시 시도해 주세요.',
   'Cancel this car’s subscription before removing it': '차량을 삭제하려면 먼저 구독을 해지해 주세요',

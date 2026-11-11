@@ -14,8 +14,12 @@ import { normalizePhone } from '@app/common/phone';
 import { UserDocument } from '@app/common/schemas/user.schema';
 import { PublicUser, UsersService } from '../users/users.service';
 import { LoginDto, RegisterDto, ResetPasswordDto } from './dto/auth.dto';
+import { LoginAttempts } from './login-attempts';
 import { OtpService } from './otp.service';
 import { AuthUser, Role } from './roles';
+
+/** Compared when the number has no account, so a wrong number takes as long as a wrong password. */
+const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 
 export interface AuthResponse {
   accessToken: string;
@@ -29,6 +33,7 @@ export class AuthService {
     private readonly otp: OtpService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly attempts: LoginAttempts,
   ) {}
 
   static hashPassword(password: string) {
@@ -61,10 +66,15 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResponse> {
-    const user = await this.users.findByPhoneWithPassword(normalizePhone(dto.phone));
-    if (!user?.passwordHash || !(await bcrypt.compare(dto.password, user.passwordHash))) {
+    const phone = normalizePhone(dto.phone);
+    this.attempts.assertAllowed(phone);
+    const user = await this.users.findByPhoneWithPassword(phone);
+    const ok = await bcrypt.compare(dto.password, user?.passwordHash ?? DUMMY_HASH);
+    if (!user?.passwordHash || !ok) {
+      this.attempts.failed(phone);
       throw new UnauthorizedException('Wrong phone number or password');
     }
+    this.attempts.succeeded(phone);
     if (user.status !== MemberStatus.Active) throw new ForbiddenException('This account is blocked');
     return this.issue(user);
   }
