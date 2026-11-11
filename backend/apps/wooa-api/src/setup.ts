@@ -17,7 +17,7 @@ export function configureApp(app: INestApplication) {
   app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   (app as NestExpressApplication).useStaticAssets(uploadRoot(), { prefix: '/uploads/', maxAge: '30d', index: false });
   app.enableCors({
-    origin: process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()) ?? true,
+    origin: process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()) ?? process.env.NODE_ENV !== 'production',
     exposedHeaders: ['Content-Disposition'],
   });
   app.useGlobalFilters(new TranslateErrorsFilter(app.getHttpAdapter()));
