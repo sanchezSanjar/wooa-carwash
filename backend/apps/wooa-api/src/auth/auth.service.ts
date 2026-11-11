@@ -37,7 +37,7 @@ export class AuthService {
 
   async register(dto: RegisterDto, language: Lang = 'ko'): Promise<AuthResponse> {
     const phone = normalizePhone(dto.phone);
-    await this.otp.assertSignupVerified(phone);
+    await this.otp.assertSignupToken(phone, dto.signupToken);
     if (await this.users.findByPhoneWithPassword(phone)) {
       throw new ConflictException('This phone number already has an account');
     }
@@ -56,7 +56,7 @@ export class AuthService {
       if (err?.code === 11000) throw new ConflictException('This phone number or email already has an account');
       throw err;
     }
-    await this.otp.markSignupUsed(phone);
+    await this.otp.useSignupToken(phone, dto.signupToken);
     return this.issue(user);
   }
 

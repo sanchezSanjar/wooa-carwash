@@ -49,14 +49,14 @@ const lastCode = (phone: string) => {
 /** Full SMS sign-up: request code → verify → register. */
 const register = async (name: string, phone: string, apartmentName = 'Raemian Gwanggyo', headers: Record<string, string> = {}) => {
   await request(http).post('/auth/otp/request').set(headers).send({ phone, purpose: 'signup' }).expect(200);
-  await request(http)
+  const verified = await request(http)
     .post('/auth/otp/verify')
     .send({ phone, purpose: 'signup', code: lastCode(phone) })
     .expect(200);
   const res = await request(http)
     .post('/auth/register')
     .set(headers)
-    .send({ name, phone, password: 'password123', apartmentName })
+    .send({ name, phone, password: 'password123', apartmentName, signupToken: verified.body.signupToken })
     .expect(201);
   return res.body.accessToken as string;
 };
@@ -100,7 +100,7 @@ describe('sms sign-up and login', () => {
   it('needs a verified phone to register', async () => {
     await request(http)
       .post('/auth/register')
-      .send({ name: 'x', phone: '010-5555-6666', password: 'password123', apartmentName: 'A' })
+      .send({ name: 'x', phone: '010-5555-6666', password: 'password123', apartmentName: 'A', signupToken: 'x'.repeat(43) })
       .expect(400);
     await request(http).post('/auth/otp/request').send({ phone: '010-5555-6666', purpose: 'signup' }).expect(200);
     const bad = await request(http)

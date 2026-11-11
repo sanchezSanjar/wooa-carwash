@@ -14,7 +14,7 @@ import { SmsService } from '@app/common/sms/sms.service';
 const MINUTE = 60_000;
 const CODE_TTL = 3 * MINUTE;
 const RESET_TOKEN_TTL = 10 * MINUTE;
-const SIGNUP_VERIFIED_WINDOW = 15 * MINUTE;
+const SIGNUP_TOKEN_TTL = 15 * MINUTE;
 const MAX_ATTEMPTS = 5;
 const RESEND_COOLDOWN = MINUTE;
 const MAX_PER_PHONE_PER_HOUR = 5; // every code is a paid SMS
@@ -78,7 +78,15 @@ export class OtpService {
     return OTP_SENT_IF_REGISTERED;
   }
 
-  async verify(rawPhone: string, purpose: OtpPurpose, code: string): Promise<{ verified: true; resetToken?: string }> {
+  /**
+   * Checks a code. A correct code gives a one-time token that only this caller has:
+   * sign-up sends it with /auth/register, a reset with /auth/reset-password.
+   */
+  async verify(
+    rawPhone: string,
+    purpose: OtpPurpose,
+    code: string,
+  ): Promise<{ verified: true; signupToken?: string; resetToken?: string }> {
     const phone = normalizePhone(rawPhone);
     // count the attempt before comparing, atomically: parallel guesses can't exceed the limit
     const otp = await this.otps
@@ -105,35 +113,35 @@ export class OtpService {
       throw new BadRequestException(`Wrong code. ${left} attempt(s) left.`);
     }
 
-    const verified = { status: OtpStatus.Verified, verifiedAt: new Date() };
-    if (purpose === OtpPurpose.Signup) {
-      await this.otps.updateOne({ _id: otp._id, status: OtpStatus.Pending }, verified);
-      return { verified: true };
-    }
-    const resetToken = randomBytes(32).toString('base64url');
-    await this.otps.updateOne(
+    const token = randomBytes(32).toString('base64url');
+    const ttl = purpose === OtpPurpose.Signup ? SIGNUP_TOKEN_TTL : RESET_TOKEN_TTL;
+    const res = await this.otps.updateOne(
       { _id: otp._id, status: OtpStatus.Pending },
-      { ...verified, resetTokenHash: sha256(resetToken), expiresAt: new Date(Date.now() + RESET_TOKEN_TTL) },
+      { status: OtpStatus.Verified, verifiedAt: new Date(), tokenHash: sha256(token), expiresAt: new Date(Date.now() + ttl) },
     );
-    return { verified: true, resetToken };
+    if (res.modifiedCount !== 1) throw expired; // the same code was used twice at the same moment
+    return purpose === OtpPurpose.Signup ? { verified: true, signupToken: token } : { verified: true, resetToken: token };
   }
 
-  /** Sign-up: the phone must have been verified by SMS in the last 15 minutes. */
-  async assertSignupVerified(rawPhone: string): Promise<void> {
-    const ok = await this.otps.exists({
-      phone: normalizePhone(rawPhone),
-      purpose: OtpPurpose.Signup,
-      status: OtpStatus.Verified,
-      verifiedAt: { $gte: new Date(Date.now() - SIGNUP_VERIFIED_WINDOW) },
-    });
+  /** Sign-up: the token from a correct SMS code for this phone, in the last 15 minutes. */
+  async assertSignupToken(rawPhone: string, signupToken: string): Promise<void> {
+    const ok = await this.otps.exists(this.signupFilter(rawPhone, signupToken));
     if (!ok) throw new BadRequestException('Verify your phone number with the SMS code first');
   }
 
-  async markSignupUsed(rawPhone: string): Promise<void> {
-    await this.otps.updateMany(
-      { phone: normalizePhone(rawPhone), purpose: OtpPurpose.Signup, status: OtpStatus.Verified },
-      { status: OtpStatus.Used },
-    );
+  /** After the account exists: the token can't be used again. */
+  async useSignupToken(rawPhone: string, signupToken: string): Promise<void> {
+    await this.otps.updateOne(this.signupFilter(rawPhone, signupToken), { status: OtpStatus.Used });
+  }
+
+  private signupFilter(rawPhone: string, signupToken: string) {
+    return {
+      phone: normalizePhone(rawPhone),
+      purpose: OtpPurpose.Signup,
+      status: OtpStatus.Verified,
+      tokenHash: sha256(signupToken),
+      expiresAt: { $gt: new Date() },
+    };
   }
 
   /** Uses a reset token exactly once and returns the member it belongs to. */
@@ -141,7 +149,7 @@ export class OtpService {
     const otp = await this.otps
       .findOneAndUpdate(
         {
-          resetTokenHash: sha256(resetToken),
+          tokenHash: sha256(resetToken),
           purpose: OtpPurpose.Reset,
           status: OtpStatus.Verified,
           expiresAt: { $gt: new Date() },

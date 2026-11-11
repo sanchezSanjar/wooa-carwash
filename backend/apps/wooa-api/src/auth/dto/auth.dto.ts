@@ -25,6 +25,12 @@ export class VerifyOtpDto extends RequestOtpDto {
 }
 
 export class RegisterDto extends PhoneDto {
+  @ApiProperty({ description: 'Given by /auth/otp/verify after the correct SMS code' })
+  @IsString()
+  @MinLength(20)
+  @MaxLength(100)
+  signupToken: string;
+
   @ApiProperty({ example: 'Kim Minjun' })
   @IsString()
   @MinLength(1)

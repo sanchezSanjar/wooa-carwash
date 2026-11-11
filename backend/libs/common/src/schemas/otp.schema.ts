@@ -7,7 +7,7 @@ export type OtpPurpose = (typeof OtpPurpose)[keyof typeof OtpPurpose];
 export const OtpStatus = { Pending: 'pending', Verified: 'verified', Used: 'used', Expired: 'expired' } as const;
 export type OtpStatus = (typeof OtpStatus)[keyof typeof OtpStatus];
 
-/** A one-time SMS code. Codes and reset tokens are stored only as hashes. */
+/** A one-time SMS code. Codes and the tokens given after a correct code are stored only as hashes. */
 @Schema({ collection: 'otps', timestamps: true })
 export class Otp {
   @Prop({ type: String, enum: Object.values(OtpPurpose), required: true })
@@ -28,8 +28,9 @@ export class Otp {
   @Prop({ required: true })
   ip: string;
 
+  /** Given after a correct code: sign-up needs it to register, a reset needs it to set the password. */
   @Prop({ select: false })
-  resetTokenHash?: string;
+  tokenHash?: string;
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
   member?: Types.ObjectId;
@@ -45,6 +46,6 @@ export type OtpDocument = HydratedDocument<Otp>;
 export const OtpSchema = SchemaFactory.createForClass(Otp);
 OtpSchema.index({ phone: 1, purpose: 1, createdAt: -1 });
 OtpSchema.index({ ip: 1, createdAt: -1 });
-OtpSchema.index({ resetTokenHash: 1 }, { sparse: true });
+OtpSchema.index({ tokenHash: 1 }, { sparse: true });
 // Deleted after a day; rate-limit history lives that long.
 OtpSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 });

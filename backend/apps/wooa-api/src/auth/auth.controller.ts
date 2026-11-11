@@ -10,7 +10,7 @@ import { CurrentUser } from './roles';
 import type { AuthUser } from './roles';
 
 /**
- * Sign-up:  POST /auth/otp/request {phone, purpose: signup} → SMS → /auth/otp/verify → /auth/register
+ * Sign-up:  POST /auth/otp/request {phone, purpose: signup} → SMS → /auth/otp/verify (signupToken) → /auth/register
  * Reset:    POST /auth/otp/request {phone, purpose: reset} → SMS → /auth/otp/verify (resetToken) → /auth/reset-password
  */
 @ApiTags('auth')
