@@ -66,6 +66,7 @@ export class ResetPasswordDto {
   @ApiProperty()
   @IsString()
   @MinLength(20)
+  @MaxLength(100)
   resetToken: string;
 
   @ApiProperty({ minLength: 8 })
