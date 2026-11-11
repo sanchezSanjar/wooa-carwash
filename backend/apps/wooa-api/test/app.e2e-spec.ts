@@ -640,3 +640,74 @@ describe('bills', () => {
     expect((await request(http).get('/invoices').query({ month }).set(auth(admin)).expect(200)).body.totals).toMatchObject({ paid: 40000, unpaid: 0 });
   });
 });
+
+describe('security', () => {
+  /** Requests and checks an SMS code; returns the token the server gives for it. */
+  const verifyPhone = async (phone: string) => {
+    await request(http).post('/auth/otp/request').send({ phone, purpose: 'signup' }).expect(200);
+    const res = await request(http).post('/auth/otp/verify').send({ phone, purpose: 'signup', code: lastCode(phone) }).expect(200);
+    return res.body.signupToken as string;
+  };
+  const signup = { name: 'Someone', password: 'password123', apartmentName: 'Raemian Gwanggyo' };
+
+  it('lets only the person who checked the SMS code create the account', async () => {
+    const token = await verifyPhone('010-7777-1001');
+    expect(token).toMatch(/^[\w-]{40,}$/);
+    // someone else who only knows the number can't finish the sign-up
+    await request(http).post('/auth/register').send({ ...signup, phone: '010-7777-1001', signupToken: 'x'.repeat(43) }).expect(400);
+    // a token is tied to its own number
+    await request(http).post('/auth/register').send({ ...signup, phone: '010-7777-1002', signupToken: token }).expect(400);
+    await request(http).post('/auth/register').send({ ...signup, phone: '010-7777-1001', signupToken: token }).expect(201);
+    // and works once
+    await request(http).post('/auth/register').send({ ...signup, phone: '010-7777-1001', signupToken: token }).expect(400);
+  });
+
+  it('never makes an admin from an email address', async () => {
+    process.env.ADMIN_EMAILS = 'boss@wooa.test'; // the old setting must do nothing now
+    const token = await verifyPhone('010-7777-1003');
+    const res = await request(http)
+      .post('/auth/register')
+      .send({ ...signup, phone: '010-7777-1003', email: 'boss@wooa.test', signupToken: token })
+      .expect(201);
+    expect(res.body.user.role).toBe('customer');
+    delete process.env.ADMIN_EMAILS;
+  });
+
+  it('locks a phone number after 5 wrong passwords', async () => {
+    const token = await verifyPhone('010-7777-1004');
+    await request(http).post('/auth/register').send({ ...signup, phone: '010-7777-1004', signupToken: token }).expect(201);
+    for (let i = 0; i < 5; i++) {
+      await request(http).post('/auth/login').send({ phone: '010-7777-1004', password: 'wrong-password' }).expect(401);
+    }
+    // even the right password waits now
+    const locked = await request(http).post('/auth/login').send({ phone: '010-7777-1004', password: 'password123' }).expect(429);
+    expect(locked.body.message).toMatch(/15 minutes/);
+    // other members are not affected
+    await request(http).post('/auth/login').send({ phone: '010-1111-2222', password: 'password123' }).expect(200);
+  });
+
+  it('limits auth calls per IP address', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 22; i++) {
+      const res = await request(http).post('/auth/reset-password').send({ resetToken: 'x'.repeat(43), newPassword: 'password123' });
+      statuses.push(res.status);
+    }
+    // earlier tests already used a few calls this minute: at most 20 get through, then every call is refused
+    const firstRefused = statuses.indexOf(429);
+    expect(firstRefused).toBeGreaterThan(0);
+    expect(firstRefused).toBeLessThanOrEqual(20);
+    expect(statuses.slice(0, firstRefused).every((s) => s === 400)).toBe(true);
+    expect(statuses.slice(firstRefused).every((s) => s === 429)).toBe(true);
+  });
+});
+
+describe('proxy setting', () => {
+  it('trusts only the proxies it is told about', async () => {
+    const { trustProxySetting } = await import('../src/setup');
+    expect(trustProxySetting(undefined)).toBeUndefined();
+    expect(trustProxySetting('')).toBeUndefined();
+    expect(trustProxySetting('false')).toBeUndefined();
+    expect(trustProxySetting('1')).toBe(1);
+    expect(trustProxySetting('loopback')).toBe('loopback');
+  });
+});
