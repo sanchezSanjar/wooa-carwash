@@ -16,6 +16,7 @@ export default function RegisterScreen() {
   const { t } = useI18n();
   const { next } = useLocalSearchParams<{ next?: string }>();
   const [phone, setPhone] = useState<string | null>(null);
+  const [signupToken, setSignupToken] = useState('');
   const [form, setForm] = useState({ name: '', apartmentName: '', email: '', password: '' });
   const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string>>>({});
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +31,7 @@ export default function RegisterScreen() {
     if (form.email.trim() && !/^\S+@\S+\.\S+$/.test(form.email.trim())) e.email = t('Enter a valid email or leave it empty');
     if (form.password.length < 8) e.password = t('Use at least 8 characters');
     setErrors(e);
-    if (Object.keys(e).length || !phone) return;
+    if (Object.keys(e).length || !phone || !signupToken) return;
     setBusy(true);
     setError(null);
     try {
@@ -40,6 +41,7 @@ export default function RegisterScreen() {
         apartmentName: form.apartmentName.trim(),
         password: form.password,
         email: form.email.trim() || undefined,
+        signupToken,
       });
       finishAuth(next);
     } catch (err) {
@@ -60,7 +62,13 @@ export default function RegisterScreen() {
         </View>
 
         {!phone ? (
-          <PhoneVerify purpose="signup" onVerified={(p) => setPhone(p)} />
+          <PhoneVerify
+            purpose="signup"
+            onVerified={(p, token) => {
+              setSignupToken(token ?? '');
+              setPhone(p);
+            }}
+          />
         ) : (
           <>
             {error ? <Banner message={error} /> : null}

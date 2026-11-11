@@ -10,6 +10,8 @@ export interface RegisterInput {
   password: string;
   apartmentName: string;
   email?: string;
+  /** From the SMS code check: proves this caller verified the phone. */
+  signupToken: string;
 }
 
 interface AuthState {

@@ -12,14 +12,14 @@ const RESEND_AFTER = 60;
 
 /**
  * Step 1: phone number → SMS code. Step 2: enter the code.
- * Calls onVerified with the phone (and, for a reset, the one-time reset token).
+ * Calls onVerified with the phone and the one-time token the server gives for a correct code.
  */
 export function PhoneVerify({
   purpose,
   onVerified,
 }: {
   purpose: 'signup' | 'reset';
-  onVerified: (phone: string, resetToken?: string) => void;
+  onVerified: (phone: string, token?: string) => void;
 }) {
   const { t } = useI18n();
   const [phone, setPhone] = useState('');
@@ -68,7 +68,7 @@ export function PhoneVerify({
     setError(null);
     try {
       const res = await api.verifyOtp(phone, purpose, code);
-      onVerified(phone, res.resetToken);
+      onVerified(phone, res.signupToken ?? res.resetToken);
     } catch (e) {
       setError(e instanceof Error ? e.message : t('Could not verify the code'));
     } finally {

@@ -115,8 +115,8 @@ export const api = {
   requestOtp: (phone: string, purpose: 'signup' | 'reset') =>
     request<{ message: string }>('POST', '/auth/otp/request', { phone, purpose }),
   verifyOtp: (phone: string, purpose: 'signup' | 'reset', code: string) =>
-    request<{ verified: true; resetToken?: string }>('POST', '/auth/otp/verify', { phone, purpose, code }),
-  register: (body: { name: string; phone: string; password: string; apartmentName: string; email?: string }) =>
+    request<{ verified: true; signupToken?: string; resetToken?: string }>('POST', '/auth/otp/verify', { phone, purpose, code }),
+  register: (body: { name: string; phone: string; password: string; apartmentName: string; email?: string; signupToken: string }) =>
     request<AuthResponse>('POST', '/auth/register', body),
   login: (body: { phone: string; password: string }) => request<AuthResponse>('POST', '/auth/login', body),
   resetPassword: (resetToken: string, newPassword: string) =>
