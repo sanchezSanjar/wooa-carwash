@@ -49,7 +49,7 @@ export class AuthService {
         email: dto.email?.trim().toLowerCase() || undefined,
         apartmentName: dto.apartmentName.trim(),
         passwordHash: await AuthService.hashPassword(dto.password),
-        role: this.bootstrapRole(phone, dto.email),
+        role: this.bootstrapRole(phone),
         language,
       });
     } catch (err: any) {
@@ -100,16 +100,16 @@ export class AuthService {
     };
   }
 
-  /** First admins come from .env (ADMIN_PHONES, or ADMIN_EMAILS for a matching email). */
-  private bootstrapRole(phone: string, email?: string): Role {
-    const list = (key: string) =>
-      (this.config.get<string>(key) ?? '')
-        .split(',')
-        .map((v) => v.trim().toLowerCase())
-        .filter(Boolean);
-    const phones = list('ADMIN_PHONES').map(normalizePhone);
-    const emails = list('ADMIN_EMAILS');
-    if (phones.includes(phone) || (email && emails.includes(email.trim().toLowerCase()))) return Role.Admin;
-    return Role.Customer;
+  /**
+   * First admins come from ADMIN_PHONES in .env. Only phone numbers count: they are proven by the SMS code,
+   * while an email address at sign-up is not checked by anyone.
+   */
+  private bootstrapRole(phone: string): Role {
+    const phones = (this.config.get<string>('ADMIN_PHONES') ?? '')
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean)
+      .map(normalizePhone);
+    return phones.includes(phone) ? Role.Admin : Role.Customer;
   }
 }

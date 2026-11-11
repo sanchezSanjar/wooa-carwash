@@ -18,7 +18,7 @@ Subscription car wash for apartment complexes: washers come to the residents' pa
 | **Washer** | Day sheet (read), mark washes washed / skipped, upload before (scratch inspection) and after photos. |
 | **Admin** | Everything: members (create accounts, change roles, block), day sheets (arrange, assign washers, move cars between days), payments, reviews, plans and prices. |
 
-First admins come from `ADMIN_PHONES` / `ADMIN_EMAILS` in `backend/.env`; after that roles are managed in the app (Manage › Members).
+First admins come from `ADMIN_PHONES` in `backend/.env` (phone numbers only, since they are proven by the SMS code); after that roles are managed in the app (Manage › Members).
 
 ## How it works
 
