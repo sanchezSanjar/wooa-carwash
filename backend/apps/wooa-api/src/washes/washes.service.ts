@@ -89,23 +89,36 @@ export class WashesService {
     await this.storage.save(key, jpeg);
 
     const photoId = new Types.ObjectId();
-    await this.washes.updateOne(
-      { subscription: sub._id, date: dto.date },
-      {
-        $setOnInsert: { car: sub.car, status: WashStatus.Planned, note: '' },
-        $push: {
-          photos: {
-            _id: photoId,
-            kind: dto.kind,
-            key,
-            note: dto.note?.trim() ?? '',
-            uploadedBy: new Types.ObjectId(user.userId),
-            createdAt: new Date(),
-          },
+    // The limit is part of the update itself: the record only matches while it has fewer than 20 photos,
+    // so uploads arriving at the same moment can't push it past the limit.
+    const filter = { subscription: sub._id, date: dto.date, [`photos.${MAX_PHOTOS_PER_WASH - 1}`]: { $exists: false } };
+    const update = {
+      $setOnInsert: { car: sub.car, status: WashStatus.Planned, note: '' },
+      $push: {
+        photos: {
+          _id: photoId,
+          kind: dto.kind,
+          key,
+          note: dto.note?.trim() ?? '',
+          uploadedBy: new Types.ObjectId(user.userId),
+          createdAt: new Date(),
         },
       },
-      { upsert: true },
-    );
+    };
+    let added: boolean;
+    try {
+      // no record yet: created here (upsert)
+      await this.washes.updateOne(filter, update, { upsert: true });
+      added = true;
+    } catch (err: any) {
+      // the record exists but didn't match (full), or another upload created it a moment ago: try once more
+      if (err?.code !== 11000) throw err;
+      added = (await this.washes.updateOne(filter, update)).modifiedCount === 1;
+    }
+    if (!added) {
+      await this.storage.delete(key);
+      throw new BadRequestException(`At most ${MAX_PHOTOS_PER_WASH} photos per wash`);
+    }
     return { id: photoId.toString(), kind: dto.kind, url: StorageService.url(key), note: dto.note?.trim() ?? '' };
   }
 

@@ -805,3 +805,35 @@ describe('admins', () => {
     await request(http).get('/members').set(auth(admin)).expect(200);
   });
 });
+
+describe('photo limit', () => {
+  it('keeps 20 photos per wash even when uploads arrive together', async () => {
+    const owner = await register('Yoon Seo', '010-7777-3001');
+    const ownCar = (await request(http).post('/cars').set(auth(owner)).send({ ...car, plateNumber: '56다 8888' }).expect(201)).body;
+    const tariffList = (await request(http).get('/tariffs').expect(200)).body as { id: string; washesPerMonth: number }[];
+    const sub = (
+      await request(http)
+        .post('/subscriptions')
+        .set(auth(owner))
+        .send({ carId: ownCar.id, tariffId: tariffList.find((t) => t.washesPerMonth === 6)!.id, startDate: today(), schedule: sixTimes })
+        .expect(201)
+    ).body;
+    const date = sub.upcoming[0] as string;
+    const png = await sharp({ create: { width: 20, height: 20, channels: 3, background: '#cc3333' } }).png().toBuffer();
+    const results = await Promise.all(
+      Array.from({ length: 24 }, () =>
+        request(http)
+          .post('/washes/photos')
+          .set(auth(admin))
+          .field('subscriptionId', sub.id)
+          .field('date', date)
+          .field('kind', 'before')
+          .attach('file', png, 'car.png'),
+      ),
+    );
+    expect(results.filter((r) => r.status === 201)).toHaveLength(20);
+    expect(results.filter((r) => r.status === 400).every((r) => /At most 20/.test(r.body.message))).toBe(true);
+    const detail = await request(http).get('/washes/detail').query({ subscriptionId: sub.id, date }).set(auth(owner)).expect(200);
+    expect(detail.body.photos).toHaveLength(20);
+  });
+});
