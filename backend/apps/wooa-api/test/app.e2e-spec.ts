@@ -723,3 +723,33 @@ describe('proxy setting', () => {
     expect(trustProxySetting('loopback')).toBe('loopback');
   });
 });
+
+describe('api docs', () => {
+  it('are hidden in production unless switched on', async () => {
+    const { docsEnabled } = await import('../src/setup');
+    expect(docsEnabled({ NODE_ENV: 'development' })).toBe(true);
+    expect(docsEnabled({ NODE_ENV: 'production' })).toBe(false);
+    expect(docsEnabled({ NODE_ENV: 'production', API_DOCS: 'true' })).toBe(true);
+    await request(http).get('/docs').expect(200); // tests run as development
+  });
+});
+
+describe('logout', () => {
+  it('ends the token on the server, on that device only', async () => {
+    const login = () => request(http).post('/auth/login').send({ phone: '010-7777-1001', password: 'password123' }).expect(200);
+    const phone1 = (await login()).body.accessToken as string;
+    const phone2 = (await login()).body.accessToken as string;
+    await request(http).get('/auth/me').set(auth(phone1)).expect(200);
+    await request(http).post('/auth/logout').set(auth(phone1)).expect(204);
+    await request(http).get('/auth/me').set(auth(phone1)).expect(401); // a copy of the token is useless now
+    await request(http).get('/auth/me').set(auth(phone2)).expect(200); // the other device stays logged in
+    await request(http).post('/auth/logout').expect(401);
+  });
+
+  it('refuses tokens without an id (made before logout existed)', async () => {
+    const { JwtService } = await import('@nestjs/jwt');
+    const me = (await request(http).get('/auth/me').set(auth(kim)).expect(200)).body;
+    const old = new JwtService({ secret: 'test-secret' }).sign({ sub: me.id, role: me.role }, { expiresIn: '1h' });
+    await request(http).get('/auth/me').set(auth(old)).expect(401);
+  });
+});
