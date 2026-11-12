@@ -36,6 +36,12 @@ export const fileUrl = (path: string) => (path.startsWith('http') ? path : `${AP
 const fallbackUrl = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || fallbackUrl).replace(/\/+$/, '');
 
+// A release build talks to the real server: passwords and login tokens must never go over plain http.
+// Stop at start-up instead of shipping an app that sends them unencrypted (or to localhost).
+if (!__DEV__ && !API_URL.startsWith('https://')) {
+  throw new Error(`EXPO_PUBLIC_API_URL must be an https:// address in a release build (got "${API_URL}")`);
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
