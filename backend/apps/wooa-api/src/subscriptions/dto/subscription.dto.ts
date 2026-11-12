@@ -58,6 +58,7 @@ export class CreateSubscriptionDto {
   @ApiPropertyOptional({ type: [String], description: 'Extra service ids done with every wash' })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(20)
   @IsMongoId({ each: true })
   extraIds?: string[];
 }
@@ -89,6 +90,7 @@ export class UpdateSubscriptionDto {
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(20)
   @IsMongoId({ each: true })
   extraIds?: string[];
 }
