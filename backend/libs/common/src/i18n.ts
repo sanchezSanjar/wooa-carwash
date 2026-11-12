@@ -143,6 +143,8 @@ const KO_MESSAGES: Record<string, string> = {
   'This plan is cancelled': '해지된 플랜입니다',
   'A wash can only be recorded on or after its day': '세차 결과는 세차 당일부터 기록할 수 있습니다',
   'The current password is wrong': '현재 비밀번호가 올바르지 않습니다',
+  'You can’t change your own role': '내 역할은 직접 바꿀 수 없습니다',
+  'You can’t block your own account': '내 계정은 직접 정지할 수 없습니다',
   'Attach a photo': '사진을 첨부해 주세요',
   'Only images can be uploaded': '이미지 파일만 올릴 수 있습니다',
   'This file is not a readable image': '읽을 수 없는 이미지 파일입니다',

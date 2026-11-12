@@ -54,7 +54,7 @@ export class UsersController {
 
   @Patch(':id')
   @Roles(Role.Admin)
-  adminUpdate(@Param('id') id: string, @Body() dto: AdminUpdateMemberDto) {
-    return this.users.adminUpdate(id, dto);
+  adminUpdate(@CurrentUser() admin: AuthUser, @Param('id') id: string, @Body() dto: AdminUpdateMemberDto) {
+    return this.users.adminUpdate(id, dto, admin.userId);
   }
 }

@@ -793,3 +793,15 @@ describe('recording washes', () => {
     expect(cancelled.body.message).toMatch(/cancelled/);
   });
 });
+
+describe('admins', () => {
+  it('cannot lock themselves out', async () => {
+    const me = (await request(http).get('/auth/me').set(auth(admin)).expect(200)).body;
+    const demote = await request(http).patch(`/members/${me.id}`).set(auth(admin)).send({ role: 'customer' }).expect(403);
+    expect(demote.body.message).toMatch(/own role/);
+    await request(http).patch(`/members/${me.id}`).set(auth(admin)).send({ status: 'blocked' }).expect(403);
+    // their own name is fine
+    await request(http).patch(`/members/${me.id}`).set(auth(admin)).send({ name: 'Boss', role: 'admin' }).expect(200);
+    await request(http).get('/members').set(auth(admin)).expect(200);
+  });
+});

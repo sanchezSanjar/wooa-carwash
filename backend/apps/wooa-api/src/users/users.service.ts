@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import bcrypt from 'bcryptjs';
 import { isValidObjectId, Model } from 'mongoose';
@@ -113,8 +113,13 @@ export class UsersService {
     return UsersService.toPublic(user, true);
   }
 
-  async adminUpdate(id: string, dto: AdminUpdateMemberDto): Promise<PublicUser> {
+  async adminUpdate(id: string, dto: AdminUpdateMemberDto, adminId?: string): Promise<PublicUser> {
     const user = await this.getOrThrow(id);
+    // an admin can't lock themselves out; since the one making the change stays admin, one admin always remains
+    if (user.id === adminId) {
+      if (dto.role !== undefined && dto.role !== user.role) throw new ForbiddenException('You can’t change your own role');
+      if (dto.status === MemberStatus.Blocked) throw new ForbiddenException('You can’t block your own account');
+    }
     this.applyProfile(user, dto);
     if (dto.phone !== undefined) user.phone = normalizePhone(dto.phone);
     if (dto.role !== undefined) user.role = dto.role;
