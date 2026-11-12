@@ -355,8 +355,20 @@ describe('subscriptions', () => {
     await upload(kim, 'before').expect(403); // members cannot upload
     const before = await upload(washerToken, 'before').expect(201);
     await upload(washerToken, 'after').expect(201);
-    expect(before.body.url).toMatch(/^\/uploads\/washes\/.+\.jpg$/);
+    expect(before.body.url).toMatch(/^\/uploads\/washes\/.+\.jpg\?exp=\d+&sig=[\w-]+$/);
     await request(http).get(before.body.url).expect(200).expect('content-type', /image\/jpeg/);
+    // photos are not public: without the signature, with a changed one, or for another file, nothing
+    const [path, query] = before.body.url.split('?');
+    await request(http).get(path).expect(404);
+    await request(http).get(`${path}?${query.replace(/sig=./, 'sig=X')}`).expect(404);
+    await request(http).get(`${path.replace(/[^/]+\.jpg$/, 'other.jpg')}?${query}`).expect(404);
+    await request(http).get(`/uploads/../package.json?${query}`).expect(404);
+    const { StorageService } = await import('../src/washes/storage.service');
+    const key = path.slice('/uploads/'.length);
+    const exp = new URLSearchParams(query).get('exp')!;
+    const sig = new URLSearchParams(query).get('sig')!;
+    expect(StorageService.verify(key, exp, sig)).toBe(true);
+    expect(StorageService.verify(key, exp, sig, (Number(exp) + 1) * 1000)).toBe(false); // expired
 
     const detail = await request(http)
       .get('/washes/detail')

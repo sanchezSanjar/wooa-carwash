@@ -4,6 +4,7 @@ import { Car, CarSchema } from '@app/common/schemas/car.schema';
 import { Subscription, SubscriptionSchema, Wash, WashSchema } from '@app/common/schemas/subscription.schema';
 import { User, UserSchema } from '@app/common/schemas/user.schema';
 import { StorageService } from './storage.service';
+import { UploadsController } from './uploads.controller';
 import { WashPhotosController } from './washes.controller';
 import { WashesService } from './washes.service';
 
@@ -16,7 +17,7 @@ import { WashesService } from './washes.service';
       { name: User.name, schema: UserSchema },
     ]),
   ],
-  controllers: [WashPhotosController],
+  controllers: [WashPhotosController, UploadsController],
   providers: [WashesService, StorageService],
   exports: [StorageService],
 })
