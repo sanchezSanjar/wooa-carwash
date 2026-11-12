@@ -323,6 +323,10 @@ describe('subscriptions', () => {
     expect(after.body[0].history).toEqual([{ date: washDay, status: 'done', note: '', photos: 0, rating: null }]);
     doneDay = washDay;
 
+    // the day sheet shows the same result
+    const sheetAfter = await request(http).get(`/daysheets/${washDay}`).set(auth(admin)).expect(200);
+    expect(sheetAfter.body.rows.find((r: { subscriptionId: string }) => r.subscriptionId === subId)).toMatchObject({ status: 'done' });
+
     // the member is told the car was washed
     const inbox = await request(http).get('/notifications/me').set(auth(kim)).expect(200);
     expect(inbox.body.unread).toBe(1);

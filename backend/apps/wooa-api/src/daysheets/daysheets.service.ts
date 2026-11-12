@@ -198,7 +198,10 @@ export class DaySheetsService {
     const subIds = [...new Set(rows.map((r) => r.subscription.toString()))];
     const [subs, washes, washers] = await Promise.all([
       this.subs.find({ _id: { $in: subIds } }).populate('car').populate('member', 'name phone apartmentName').exec(),
-      this.washes.find({ subscription: { $in: subIds }, date: { $in: [...new Set(rows.map((r) => r.scheduledDate))] } }).exec(),
+      // real ObjectIds: Mongoose 9 doesn't turn id strings inside $in into ObjectIds, so strings match nothing
+      this.washes
+        .find({ subscription: { $in: subIds.map((id) => new Types.ObjectId(id)) }, date: { $in: [...new Set(rows.map((r) => r.scheduledDate))] } })
+        .exec(),
       this.users.find({ _id: { $in: rows.map((r) => r.washer).filter(Boolean) } }).select('name').exec(),
     ]);
     const subById = new Map(subs.map((s) => [s.id as string, s]));
