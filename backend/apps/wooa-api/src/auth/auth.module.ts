@@ -26,7 +26,8 @@ import { OtpService } from './otp.service';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.getOrThrow<string>('JWT_SECRET'),
-        signOptions: { expiresIn: (config.get<string>('JWT_EXPIRES_IN') ?? '7d') as any },
+        // short logins: a stolen token is useful for a day at most (members just log in again)
+        signOptions: { expiresIn: (config.get<string>('JWT_EXPIRES_IN') ?? '1d') as any },
       }),
     }),
   ],
