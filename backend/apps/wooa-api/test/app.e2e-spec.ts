@@ -27,6 +27,9 @@ let carId: string;
 let subId: string;
 let doneDay: string;
 
+/** Washes can be recorded once their day has come: the tests run 60 days ahead unless a test changes it. */
+const testClock = { aheadDays: 60, now: () => new Date(Date.now() + testClock.aheadDays * 86_400_000) };
+
 const MON = 1;
 const WED = 3;
 const FRI = 5;
@@ -83,7 +86,9 @@ beforeAll(async () => {
 
   const { AppModule } = await import('../src/app.module');
   const { configureApp } = await import('../src/setup');
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const { Clock } = await import('../src/clock');
+  // tests mark upcoming washes as done: act as if those days had come (one test sets it back to today)
+  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).overrideProvider(Clock).useValue(testClock).compile();
   app = moduleRef.createNestApplication();
   configureApp(app);
   await app.init();
@@ -751,5 +756,40 @@ describe('logout', () => {
     const me = (await request(http).get('/auth/me').set(auth(kim)).expect(200)).body;
     const old = new JwtService({ secret: 'test-secret' }).sign({ sub: me.id, role: me.role }, { expiresIn: '1h' });
     await request(http).get('/auth/me').set(auth(old)).expect(401);
+  });
+});
+
+describe('recording washes', () => {
+  it('refuses days that have not come yet and days after a plan was cancelled', async () => {
+    const owner = await register('Jung Hana', '010-7777-2001');
+    const ownCar = (await request(http).post('/cars').set(auth(owner)).send({ ...car, plateNumber: '34나 7777' }).expect(201)).body;
+    const tariffList = (await request(http).get('/tariffs').expect(200)).body as { id: string; washesPerMonth: number }[];
+    const sub = (
+      await request(http)
+        .post('/subscriptions')
+        .set(auth(owner))
+        .send({ carId: ownCar.id, tariffId: tariffList.find((t) => t.washesPerMonth === 6)!.id, startDate: today(), schedule: sixTimes })
+        .expect(201)
+    ).body;
+    const future = (sub.upcoming as string[]).find((d) => d > today())!;
+    const mark = (date: string, extra: Record<string, string> = {}) =>
+      request(http).patch('/washes').set(auth(admin)).send({ subscriptionId: sub.id, date, status: 'done', ...extra });
+
+    testClock.aheadDays = 0; // really today
+    try {
+      const early = await mark(future).expect(400);
+      expect(early.body.message).toMatch(/on or after its day/);
+      await request(http).patch('/washes').set(auth(admin)).send({ subscriptionId: sub.id, date: future, status: 'skipped' }).expect(400);
+      // a car moved to an earlier day can be marked on the day it was really washed
+      await mark(future, { washedOn: today() }).expect(200);
+      await mark(future, { washedOn: addDays(today(), 1) }).expect(400);
+      await request(http).patch('/washes').set(auth(admin)).send({ subscriptionId: sub.id, date: future, status: 'planned' }).expect(200);
+    } finally {
+      testClock.aheadDays = 60;
+    }
+
+    await request(http).patch(`/subscriptions/${sub.id}/cancel`).set(auth(owner)).expect(200);
+    const cancelled = await mark(future).expect(400);
+    expect(cancelled.body.message).toMatch(/cancelled/);
   });
 });

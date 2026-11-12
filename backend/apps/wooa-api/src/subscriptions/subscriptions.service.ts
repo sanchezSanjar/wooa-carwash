@@ -12,6 +12,7 @@ import { CatalogService } from '../catalog/catalog.service';
 import { ExtraDocument } from '@app/common/schemas/catalog.schema';
 import { isValidDate, today } from '@app/common/dates';
 import { AuthUser, Role } from '../auth/roles';
+import { Clock } from '../clock';
 import { User, UserDocument } from '@app/common/schemas/user.schema';
 import { NotificationText } from '@app/common/notify';
 import { Notification, NotificationType } from '@app/common/schemas/notification.schema';
@@ -44,6 +45,7 @@ export class SubscriptionsService {
     @InjectModel(User.name) private readonly userModel: Model<User>,
     private readonly cars: CarsService,
     private readonly catalog: CatalogService,
+    private readonly clock: Clock,
   ) {}
 
   async create(user: AuthUser, dto: CreateSubscriptionDto, now = new Date()) {
@@ -212,6 +214,15 @@ export class SubscriptionsService {
     if (!sub) throw new NotFoundException('Subscription not found');
     if (!isValidDate(dto.date) || dto.date < sub.startDate || !isWashDay(sub.schedule, dto.date)) {
       throw new BadRequestException('This car is not scheduled for a wash on that date');
+    }
+    // a cancelled plan has no washes from the day it was cancelled
+    if (sub.status === SubscriptionStatus.Cancelled && (!sub.cancelledAt || dto.date >= today(sub.cancelledAt))) {
+      throw new BadRequestException('This plan is cancelled');
+    }
+    // washed or skipped can only be recorded once the day has come (a moved car: the day it was really washed)
+    const todayStr = today(this.clock.now());
+    if (dto.status !== 'planned' && ((dto.washedOn ?? dto.date) > todayStr || (dto.washedOn && !isValidDate(dto.washedOn)))) {
+      throw new BadRequestException('A wash can only be recorded on or after its day');
     }
     const doneNotice = { subscription: sub._id, date: dto.date, type: NotificationType.WashDone };
     if (dto.status === 'planned') {

@@ -140,6 +140,8 @@ const KO_MESSAGES: Record<string, string> = {
   'This subscription is already cancelled': '이미 해지된 구독입니다',
   'Subscription not found': '구독을 찾을 수 없습니다',
   'This car is not scheduled for a wash on that date': '이 차량은 해당 날짜에 세차 일정이 없습니다',
+  'This plan is cancelled': '해지된 플랜입니다',
+  'A wash can only be recorded on or after its day': '세차 결과는 세차 당일부터 기록할 수 있습니다',
   'The current password is wrong': '현재 비밀번호가 올바르지 않습니다',
   'Attach a photo': '사진을 첨부해 주세요',
   'Only images can be uploaded': '이미지 파일만 올릴 수 있습니다',

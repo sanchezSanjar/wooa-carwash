@@ -12,6 +12,7 @@ import {
   WashSchema,
 } from '@app/common/schemas/subscription.schema';
 import { SubscriptionsController, WashesController } from './subscriptions.controller';
+import { Clock } from '../clock';
 import { SubscriptionsService } from './subscriptions.service';
 
 @Module({
@@ -26,6 +27,6 @@ import { SubscriptionsService } from './subscriptions.service';
     NotificationsModule,
   ],
   controllers: [CarsController, SubscriptionsController, WashesController],
-  providers: [SubscriptionsService],
+  providers: [SubscriptionsService, Clock],
 })
 export class SubscriptionsModule {}
