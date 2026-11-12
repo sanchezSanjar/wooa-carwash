@@ -9,6 +9,7 @@ Subscription car wash for apartment complexes: washers come to the residents' pa
   - `apps/wooa-batch` — scheduled jobs (bills, payment and wash reminders, weather, end-of-day close-out)
   - `libs/common` — shared schemas, schedule/billing/weather rules, SMS and database modules (`@app/common/...`)
 - `mobile/` — React Native app (Expo, Expo Router, TypeScript) for iOS, Android and web
+- `deploy/nginx/` — nginx config for the server (HTTPS, API proxy, website)
 
 ## Who does what
 
@@ -60,12 +61,12 @@ npm run start:dev:batch  # batch server (second terminal)
 - The app sends `Accept-Language: ko` or `en`; the API answers errors, Excel exports and import previews in that language (English when the header is missing).
 - Without Solapi keys SMS runs in log-only mode (codes appear in the server log); without a KMA key weather is skipped.
 - `npm run build` builds both apps into `dist/apps/`; run them with `npm run start:prod` and `npm run start:prod:batch`. Node 22+ is required.
-- Washer photos are stored on the server in `UPLOAD_DIR` and served at `/uploads/...`; keep that folder outside the code so deploys don't remove it.
+- Washer photos are stored on the server in `UPLOAD_DIR` (keep that folder outside the code so deploys don't remove it). They are not public: the API hands out `/uploads/...` links signed for 1–2 hours, only to members who may see that wash.
 - `npm test` runs unit tests; `npm run test:e2e` runs API and batch tests against an in-memory MongoDB.
 
 | Area | Endpoints |
 | --- | --- |
-| Auth | `POST /auth/otp/request`, `/auth/otp/verify`, `/auth/register`, `/auth/login`, `/auth/reset-password` · `GET /auth/me` |
+| Auth | `POST /auth/otp/request`, `/auth/otp/verify`, `/auth/register`, `/auth/login`, `/auth/logout`, `/auth/reset-password` · `GET /auth/me` |
 | Members | `PATCH /members/me` (incl. `language`: `ko` / `en`) · `POST /members/me/password` · admin: `GET/POST /members`, `GET/PATCH /members/:id` |
 | Catalog | `GET /tariffs`, `/extras` · admin: `GET /admin/tariffs`, `/admin/extras`, `POST/PATCH /tariffs`, `/extras` |
 | Cars | `GET /cars/me` · `POST /cars` · `PATCH/DELETE /cars/:id` · admin: `GET /cars?ownerId=` |
@@ -75,7 +76,7 @@ npm run start:dev:batch  # batch server (second terminal)
 | Bills | `GET /invoices/me` · admin: `GET /invoices?month=`, `/invoices/overdue`, `PATCH /invoices/:id` |
 | Updates | `GET /notifications/me` · `PATCH /notifications/read-all` |
 
-MongoDB collections: `members`, `otps`, `cars`, `tariffs`, `extras`, `subscriptions`, `washes`, `daysheets`, `invoices`, `notifications`, `forecasts`.
+MongoDB collections: `members`, `otps`, `revokedtokens`, `cars`, `tariffs`, `extras`, `subscriptions`, `washes`, `daysheets`, `invoices`, `notifications`, `forecasts`.
 
 ## Mobile and web
 
@@ -87,4 +88,12 @@ npm start              # press w for the website, or scan the QR code with Expo 
 ```
 
 - On a real phone, set `EXPO_PUBLIC_API_URL` to your computer's local IP (e.g. `http://192.168.0.10:3000`).
-- Website build: `npx expo export --platform web` creates a single-page app in `dist/`. Serve it with a fallback to `index.html` so links like `/plan/<id>` work.
+- Website build: `npx expo export --platform web` creates a single-page app in `dist/`. Serve it with a fallback to `index.html` so links like `/plan/<id>` work (`deploy/nginx/wooa-carwash.conf` does).
+- Release builds and the website need an `https://` `EXPO_PUBLIC_API_URL`; the app stops at start-up otherwise.
+
+## Going live
+
+1. `backend/.env` on the server: `NODE_ENV=production`, a random `JWT_SECRET` (`openssl rand -hex 32`), the Solapi keys, `CORS_ORIGINS` with the website address, and `TRUST_PROXY=1` behind nginx. The servers refuse to start while one of these is unsafe.
+2. Set up nginx from `deploy/nginx/wooa-carwash.conf` (steps are at the top of the file).
+3. Build the app and website with `EXPO_PUBLIC_API_URL=https://api.<your domain>`.
+4. `/docs` is off in production; set `API_DOCS=true` to turn it on.
