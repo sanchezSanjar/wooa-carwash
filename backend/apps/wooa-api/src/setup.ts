@@ -23,13 +23,19 @@ export function configureApp(app: INestApplication) {
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
 
-  const doc = new DocumentBuilder()
-    .setTitle('Wooa Carwash API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  SwaggerModule.setup('docs', app, () => SwaggerModule.createDocument(app, doc));
+  // API docs at /docs: a map of every endpoint, so not on the public server unless API_DOCS=true
+  if (docsEnabled(process.env)) {
+    const doc = new DocumentBuilder()
+      .setTitle('Wooa Carwash API')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    SwaggerModule.setup('docs', app, () => SwaggerModule.createDocument(app, doc));
+  }
 }
+
+/** /docs is on locally; in production only with API_DOCS=true. */
+export const docsEnabled = (env: NodeJS.ProcessEnv) => env.API_DOCS === 'true' || env.NODE_ENV !== 'production';
 
 /** TRUST_PROXY: a number of proxies (1), "loopback", or a list of proxy addresses. Empty: trust none. */
 export function trustProxySetting(value?: string): number | string | undefined {
