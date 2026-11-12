@@ -29,14 +29,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
 
-  const logout = useCallback(async () => {
+  /** Forgets the login on this device. */
+  const clear = useCallback(async () => {
     setAuthToken(null);
     setUser(null);
     await tokenStorage.clear();
   }, []);
 
+  /** Log out: the server ends the token too, so a copy of it stops working. */
+  const logout = useCallback(async () => {
+    await api.logout().catch(() => undefined); // offline or already expired: still log out here
+    await clear();
+  }, [clear]);
+
   useEffect(() => {
-    setUnauthorizedHandler(() => void logout());
+    setUnauthorizedHandler(() => void clear());
     (async () => {
       try {
         const token = await tokenStorage.get();
@@ -45,13 +52,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(await api.me());
         }
       } catch {
-        await logout();
+        await clear();
       } finally {
         setReady(true);
       }
     })();
     return () => setUnauthorizedHandler(null);
-  }, [logout]);
+  }, [clear]);
 
   const accept = useCallback(async (res: AuthResponse) => {
     setAuthToken(res.accessToken);

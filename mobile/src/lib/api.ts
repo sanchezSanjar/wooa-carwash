@@ -119,6 +119,7 @@ export const api = {
   register: (body: { name: string; phone: string; password: string; apartmentName: string; email?: string; signupToken: string }) =>
     request<AuthResponse>('POST', '/auth/register', body),
   login: (body: { phone: string; password: string }) => request<AuthResponse>('POST', '/auth/login', body),
+  logout: () => request<void>('POST', '/auth/logout'),
   resetPassword: (resetToken: string, newPassword: string) =>
     request<{ message: string }>('POST', '/auth/reset-password', { resetToken, newPassword }),
   changePassword: (currentPassword: string, newPassword: string) =>
