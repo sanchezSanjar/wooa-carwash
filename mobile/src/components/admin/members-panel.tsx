@@ -6,6 +6,7 @@ import { AppText, Badge, Banner, Button, Card, Chip, Loading, SectionTitle, Text
 import { Spacing, useTheme } from '@/constants/theme';
 import { useApi } from '@/hooks/use-api';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { formatPhone, isMobile } from '@/lib/format';
 import { LANG_NAMES, LANGS, type Lang } from '@/lib/lang';
 import type { Car, Role, User } from '@/lib/types';
@@ -134,6 +135,8 @@ function MemberRow({
 }) {
   const theme = useTheme();
   const { t } = useI18n();
+  const { user } = useAuth();
+  const isMe = user?.id === member.id; // the server refuses changing your own role or blocking yourself
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -167,18 +170,24 @@ function MemberRow({
       {open ? (
         <View style={{ gap: Spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border, paddingTop: Spacing.md }}>
           {error ? <Banner message={error} /> : null}
-          <AppText variant="caption">{t('Role')}</AppText>
-          <View style={styles.chips}>
-            {ROLES.map((r) => (
-              <Chip key={r.value} label={t(r.label)} selected={member.role === r.value} disabled={busy} onPress={() => update({ role: r.value })} />
-            ))}
-          </View>
-          <Button
-            title={member.status === 'blocked' ? t('Unblock account') : t('Block account')}
-            variant={member.status === 'blocked' ? 'secondary' : 'danger'}
-            loading={busy}
-            onPress={() => update({ status: member.status === 'blocked' ? 'active' : 'blocked' })}
-          />
+          {isMe ? (
+            <AppText variant="caption">{t('This is your account. Another admin can change its role or block it.')}</AppText>
+          ) : (
+            <>
+              <AppText variant="caption">{t('Role')}</AppText>
+              <View style={styles.chips}>
+                {ROLES.map((r) => (
+                  <Chip key={r.value} label={t(r.label)} selected={member.role === r.value} disabled={busy} onPress={() => update({ role: r.value })} />
+                ))}
+              </View>
+              <Button
+                title={member.status === 'blocked' ? t('Unblock account') : t('Block account')}
+                variant={member.status === 'blocked' ? 'secondary' : 'danger'}
+                loading={busy}
+                onPress={() => update({ status: member.status === 'blocked' ? 'active' : 'blocked' })}
+              />
+            </>
+          )}
           <MemberCars memberId={member.id} />
         </View>
       ) : null}

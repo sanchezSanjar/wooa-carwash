@@ -137,6 +137,7 @@ export const KO: Record<string, string> = {
   "Edit car": "차량 수정",
   "Welcome to Wooa Carwash": "우아세차에 오신 것을 환영합니다",
   "Wooa Carwash": "우아세차",
+  "This is your account. Another admin can change its role or block it.": "내 계정입니다. 역할 변경이나 정지는 다른 관리자가 할 수 있습니다.",
   "Create an account to add your cars and choose a wash plan.": "계정을 만들고 차량을 등록해 세차 플랜을 선택하세요.",
   "Enter your name and your apartment": "이름과 아파트를 입력해 주세요",
   "Profile saved": "프로필을 저장했습니다",
