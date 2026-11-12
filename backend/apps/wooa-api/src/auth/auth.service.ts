@@ -8,9 +8,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { InjectModel } from '@nestjs/mongoose';
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
+import { Model } from 'mongoose';
 import { MemberStatus } from '@app/common/enums';
 import { normalizePhone } from '@app/common/phone';
+import { RevokedToken } from '@app/common/schemas/revoked-token.schema';
 import { UserDocument } from '@app/common/schemas/user.schema';
 import { PublicUser, UsersService } from '../users/users.service';
 import { LoginDto, RegisterDto, ResetPasswordDto } from './dto/auth.dto';
@@ -20,6 +24,13 @@ import { AuthUser, Role } from './roles';
 
 /** Compared when the number has no account, so a wrong number takes as long as a wrong password. */
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
+
+export interface TokenPayload {
+  sub: string;
+  jti?: string;
+  iat?: number;
+  exp?: number;
+}
 
 export interface AuthResponse {
   accessToken: string;
@@ -34,6 +45,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly attempts: LoginAttempts,
+    @InjectModel(RevokedToken.name) private readonly revoked: Model<RevokedToken>,
   ) {}
 
   static hashPassword(password: string) {
@@ -93,19 +105,27 @@ export class AuthService {
   }
 
   /** Called on every request by the JWT strategy: blocked members and old tokens are rejected. */
-  async validate(payload: { sub: string; iat?: number }): Promise<AuthUser> {
+  async validate(payload: TokenPayload): Promise<AuthUser> {
+    // every token has an id since logout was added; older ones can't be logged out, so they stop working
+    if (!payload.jti || (await this.revoked.exists({ jti: payload.jti }))) throw new UnauthorizedException('Please log in again');
     const user = await this.users.findById(payload.sub);
     if (!user || user.status !== MemberStatus.Active) throw new UnauthorizedException();
     const issuedAt = (payload.iat ?? 0) * 1000;
     if (user.passwordChangedAt && issuedAt < user.passwordChangedAt.getTime() - 1000) {
       throw new UnauthorizedException('Please log in again');
     }
-    return { userId: user.id, role: user.role, phone: user.phone };
+    return { userId: user.id, role: user.role, phone: user.phone, tokenId: payload.jti, tokenExpiresAt: payload.exp };
+  }
+
+  /** Ends this login: the token stops working at once, on this device only. */
+  async logout(user: AuthUser): Promise<void> {
+    const expiresAt = new Date((user.tokenExpiresAt ?? Math.floor(Date.now() / 1000) + 86_400) * 1000);
+    await this.revoked.updateOne({ jti: user.tokenId }, { $setOnInsert: { jti: user.tokenId, expiresAt } }, { upsert: true });
   }
 
   private async issue(user: UserDocument): Promise<AuthResponse> {
     return {
-      accessToken: await this.jwt.signAsync({ sub: user.id, role: user.role }),
+      accessToken: await this.jwt.signAsync({ sub: user.id, role: user.role }, { jwtid: randomUUID() }),
       user: UsersService.toPublic(user),
     };
   }

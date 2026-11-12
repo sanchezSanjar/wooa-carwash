@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { MongooseModule } from '@nestjs/mongoose';
 import { PassportModule } from '@nestjs/passport';
 import { Otp, OtpSchema } from '@app/common/schemas/otp.schema';
+import { RevokedToken, RevokedTokenSchema } from '@app/common/schemas/revoked-token.schema';
 import { User, UserSchema } from '@app/common/schemas/user.schema';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
@@ -19,6 +20,7 @@ import { OtpService } from './otp.service';
     MongooseModule.forFeature([
       { name: Otp.name, schema: OtpSchema },
       { name: User.name, schema: UserSchema },
+      { name: RevokedToken.name, schema: RevokedTokenSchema },
     ]),
     JwtModule.registerAsync({
       inject: [ConfigService],

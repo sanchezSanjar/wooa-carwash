@@ -14,6 +14,9 @@ export interface AuthUser {
   userId: string;
   phone: string;
   role: Role;
+  /** The login token's id and expiry (seconds), used by logout. */
+  tokenId?: string;
+  tokenExpiresAt?: number;
 }
 
 const ROLES_KEY = 'roles';

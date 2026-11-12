@@ -55,6 +55,15 @@ export class AuthController {
     return this.auth.resetPassword(dto);
   }
 
+  /** Ends this login on the server too, so the token can't be used again. */
+  @Post('logout')
+  @HttpCode(204)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  logout(@CurrentUser() user: AuthUser) {
+    return this.auth.logout(user);
+  }
+
   @Get('me')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
