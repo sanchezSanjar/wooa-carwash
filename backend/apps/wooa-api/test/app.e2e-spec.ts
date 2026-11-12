@@ -837,3 +837,18 @@ describe('photo limit', () => {
     expect(detail.body.photos).toHaveLength(20);
   });
 });
+
+describe('password length', () => {
+  it('refuses passwords bcrypt would cut short', async () => {
+    const token = await (async () => {
+      await request(http).post('/auth/otp/request').send({ phone: '010-7777-4001', purpose: 'signup' }).expect(200);
+      const res = await request(http).post('/auth/otp/verify').send({ phone: '010-7777-4001', purpose: 'signup', code: lastCode('010-7777-4001') }).expect(200);
+      return res.body.signupToken as string;
+    })();
+    const body = { name: 'Lim', phone: '010-7777-4001', apartmentName: 'Raemian Gwanggyo', signupToken: token };
+    const korean = '비'.repeat(25); // 75 bytes: past bcrypt's 72
+    const res = await request(http).post('/auth/register').send({ ...body, password: korean }).expect(400);
+    expect(JSON.stringify(res.body.message)).toMatch(/too long/);
+    await request(http).post('/auth/register').send({ ...body, password: '비'.repeat(24) }).expect(201); // 72 bytes is fine
+  });
+});

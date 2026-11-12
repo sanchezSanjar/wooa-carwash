@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { PasswordFits } from '../password';
 import { OtpPurpose } from '@app/common/schemas/otp.schema';
 
 /** Accepts 010-1234-5678, 01012345678 or +82 10 1234 5678; services normalize it. */
@@ -41,6 +42,7 @@ export class RegisterDto extends PhoneDto {
   @IsString()
   @MinLength(8)
   @MaxLength(128)
+  @PasswordFits()
   password: string;
 
   @ApiProperty({ example: 'Raemian Gwanggyo', description: 'Apartment complex name' })
@@ -73,5 +75,6 @@ export class ResetPasswordDto {
   @IsString()
   @MinLength(8)
   @MaxLength(128)
+  @PasswordFits()
   newPassword: string;
 }

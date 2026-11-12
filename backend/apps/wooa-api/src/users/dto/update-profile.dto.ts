@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { PasswordFits } from '../../auth/password';
 import { MemberStatus, Role } from '@app/common/enums';
 import { LANGS, type Lang } from '@app/common/i18n';
 import { PHONE_RE } from '../../auth/dto/auth.dto';
@@ -41,6 +42,7 @@ export class ChangePasswordDto {
   @IsString()
   @MinLength(8)
   @MaxLength(128)
+  @PasswordFits()
   newPassword: string;
 }
 
@@ -81,6 +83,7 @@ export class AdminCreateMemberDto {
   @IsString()
   @MinLength(8)
   @MaxLength(128)
+  @PasswordFits()
   password?: string;
 }
 
