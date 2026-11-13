@@ -10,6 +10,7 @@ Subscription car wash for apartment complexes: washers come to the residents' pa
   - `libs/common` — shared schemas, schedule/billing/weather rules, SMS and database modules (`@app/common/...`)
 - `mobile/` — React Native app (Expo, Expo Router, TypeScript) for iOS, Android and web
 - `deploy/nginx/` — nginx config for the server (HTTPS, API proxy, website)
+- Admin website: separate repo [wooa-carwash-NextJS](https://github.com/sanchezSanjar/wooa-carwash-NextJS) (Next.js), talks to this API
 
 ## Who does what
 
