@@ -1,6 +1,6 @@
 # Wooa Carwash
 
-Subscription car wash for apartment complexes: washers come to the residents' parking lot on fixed days and wash each car while it is parked at home. One app codebase runs on iOS, Android and the web.
+Subscription car wash for apartment complexes: washers come to the residents' parking lot on fixed days and wash each car while it is parked at home. This repo is the backend; the app and the admin website have their own repos.
 
 ## Structure
 
@@ -8,9 +8,9 @@ Subscription car wash for apartment complexes: washers come to the residents' pa
   - `apps/wooa-api` — REST API used by the app and website
   - `apps/wooa-batch` — scheduled jobs (bills, payment and wash reminders, weather, end-of-day close-out)
   - `libs/common` — shared schemas, schedule/billing/weather rules, SMS and database modules (`@app/common/...`)
-- `mobile/` — React Native app (Expo, Expo Router, TypeScript) for iOS, Android and web
 - `deploy/nginx/` — nginx config for the server (HTTPS, API proxy, website)
-- Admin website: separate repo [wooa-carwash-NextJS](https://github.com/sanchezSanjar/wooa-carwash-NextJS) (Next.js), talks to this API
+- Customer app and website: separate repo [wooa-carwash-app](https://github.com/sanchezSanjar/wooa-carwash-app) (Expo, for iOS, Android and web)
+- Admin website: separate repo [wooa-carwash-NextJS](https://github.com/sanchezSanjar/wooa-carwash-NextJS) (Next.js)
 
 ## Who does what
 
@@ -34,7 +34,7 @@ First admins come from `ADMIN_PHONES` in `backend/.env` (phone numbers only, sin
 - **Day sheet**: the admin's workbook for one day. It starts as the schedule; admins reorder cars, assign washers, add notes, pull in missed or upcoming cars, or move a car to another day, then save. Only that day's sheet is saved — cars, members and plans never change. A moved wash keeps its scheduled date and records the day it was really washed.
 - **Excel**: “Export to Excel” downloads 1, 7 or 14 days, one tab per day. Edit the yellow columns (order, day, washer, note) — change the Day to move a car — and “Import from Excel” shows every change and problem before anything is saved. Imports only change day sheets, never cars, members, plans or wash results.
 - **Bills**: on the 1st (and daily for new plans) the batch server issues each car's bill — a plan that starts mid-month pays only for the washes left that month. Bills are due on `PAYMENT_DUE_DAY` (at least 7 days after issue). Members get an SMS when it's issued, 3 days before it's due and weekly while overdue. Payment happens outside the app (bank transfer, cash); admins mark bills paid.
-- **Languages**: Korean and English. The app starts in the phone's language (Korean unless the phone is set to English) and has a 한국어 / English switch on the Account page and in the website header. The choice is saved on the member's account, so notifications, SMS, API error messages and Excel files follow it; new members get Korean texts until they switch. App texts live in `mobile/src/lib/ko.ts` (keys are the English text), server texts in `backend/libs/common/src/i18n.ts` and `notify.ts`. Plan and extra names the shop started with are translated; names an admin types are shown as typed.
+- **Languages**: Korean and English. The app starts in the phone's language (Korean unless the phone is set to English) and has a 한국어 / English switch on the Account page and in the website header. The choice is saved on the member's account, so notifications, SMS, API error messages and Excel files follow it; new members get Korean texts until they switch. App texts live in the app repo's `src/lib/ko.ts` (keys are the English text), server texts in `backend/libs/common/src/i18n.ts` and `notify.ts`. Plan and extra names the shop started with are translated; names an admin types are shown as typed.
 - **Weather**: forecasts from the Korea Meteorological Administration are stored for the next days and shown on the day sheets; the evening before, members with a wash get a notice when rain or snow is likely.
 
 ## Batch schedule (Korea time)
@@ -79,22 +79,13 @@ npm run start:dev:batch  # batch server (second terminal)
 
 MongoDB collections: `members`, `otps`, `revokedtokens`, `cars`, `tariffs`, `extras`, `subscriptions`, `washes`, `daysheets`, `invoices`, `notifications`, `forecasts`.
 
-## Mobile and web
+## App and website
 
-```bash
-cd mobile
-cp .env.example .env   # EXPO_PUBLIC_API_URL
-npm install
-npm start              # press w for the website, or scan the QR code with Expo Go
-```
-
-- On a real phone, set `EXPO_PUBLIC_API_URL` to your computer's local IP (e.g. `http://192.168.0.10:3000`).
-- Website build: `npx expo export --platform web` creates a single-page app in `dist/`. Serve it with a fallback to `index.html` so links like `/plan/<id>` work (`deploy/nginx/wooa-carwash.conf` does).
-- Release builds and the website need an `https://` `EXPO_PUBLIC_API_URL`; the app stops at start-up otherwise.
+The customer app and website are in [wooa-carwash-app](https://github.com/sanchezSanjar/wooa-carwash-app); its README shows how to run and build them. Point its `EXPO_PUBLIC_API_URL` at this API.
 
 ## Going live
 
 1. `backend/.env` on the server: `NODE_ENV=production`, a random `JWT_SECRET` (`openssl rand -hex 32`), the Solapi keys, `CORS_ORIGINS` with the website address, and `TRUST_PROXY=1` behind nginx. The servers refuse to start while one of these is unsafe.
 2. Set up nginx from `deploy/nginx/wooa-carwash.conf` (steps are at the top of the file).
-3. Build the app and website with `EXPO_PUBLIC_API_URL=https://api.<your domain>`.
+3. Build the app and website (wooa-carwash-app) with `EXPO_PUBLIC_API_URL=https://api.<your domain>`.
 4. `/docs` is off in production; set `API_DOCS=true` to turn it on.
