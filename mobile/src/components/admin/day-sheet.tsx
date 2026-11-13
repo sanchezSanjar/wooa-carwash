@@ -206,7 +206,7 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
                 <View style={[styles.cell, { width: COL.car }]}>
                   <AppText variant="label">{r.car.plateNumber}</AppText>
                   <AppText variant="caption" numberOfLines={1}>
-                    {r.car.color} {r.car.brand} {r.car.model}
+                    {t(r.car.color)} {r.car.brand} {r.car.model}
                   </AppText>
                 </View>
                 <AppText variant="caption" style={[styles.cell, { width: COL.parked }]}>
@@ -243,7 +243,7 @@ function SheetForDay({ date, isAdmin, moveDates }: { date: string; isAdmin: bool
               <View style={{ flex: 1 }}>
                 <AppText variant="heading">{r.car.plateNumber}</AppText>
                 <AppText variant="caption">
-                  {r.car.color} {r.car.brand} {r.car.model} · {t('Bldg {building} · {floor}', { building: r.car.buildingNumber, floor: r.car.parkingFloor })}
+                  {t(r.car.color)} {r.car.brand} {r.car.model} · {t('Bldg {building} · {floor}', { building: r.car.buildingNumber, floor: r.car.parkingFloor })}
                 </AppText>
               </View>
               <StatusBadge row={r} />

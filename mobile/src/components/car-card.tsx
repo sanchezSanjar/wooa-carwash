@@ -20,7 +20,7 @@ export function CarCard({ car, children, footer }: { car: Car; children?: React.
         <View style={{ flex: 1, gap: 2 }}>
           <AppText variant="heading">{car.plateNumber}</AppText>
           <AppText variant="caption">
-            {car.color} {car.brand} {car.model}
+            {t(car.color)} {car.brand} {car.model}
           </AppText>
         </View>
         {children}
