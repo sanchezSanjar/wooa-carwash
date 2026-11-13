@@ -34,6 +34,7 @@ import {
 
 const UPCOMING_COUNT = 6;
 const MAX_START_DAYS_AHEAD = 90;
+const ADMIN_HISTORY_DAYS = 60; // how far back the admin plan list shows wash results
 
 @Injectable()
 export class SubscriptionsService {
@@ -114,8 +115,19 @@ export class SubscriptionsService {
       .populate('car')
       .populate('member', 'name email phone apartmentName')
       .exec();
+    // each plan's latest results (last 60 days, at most 10 per plan): one query for all plans
+    const since = today(new Date(now.getTime() - ADMIN_HISTORY_DAYS * 86_400_000));
+    const recent = await this.washes
+      .find({ subscription: { $in: subs.map((s) => s._id) }, status: { $ne: WashStatus.Planned }, date: { $gte: since } })
+      .sort({ date: -1 })
+      .exec();
+    const bySub = new Map<string, WashDocument[]>();
+    for (const w of recent) {
+      const list = bySub.get(w.subscription.toString()) ?? [];
+      if (list.length < 10) bySub.set(w.subscription.toString(), [...list, w]);
+    }
     return subs.map((s) => ({
-      ...this.toPublic(s, { car: s.car as unknown as CarDocument, now }),
+      ...this.toPublic(s, { car: s.car as unknown as CarDocument, now, history: bySub.get(s.id as string) ?? [] }),
       member: SubscriptionsService.memberInfo(s.member as unknown as UserDocument),
     }));
   }

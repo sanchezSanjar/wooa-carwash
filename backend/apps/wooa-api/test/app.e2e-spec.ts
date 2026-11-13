@@ -326,6 +326,9 @@ describe('subscriptions', () => {
     // the day sheet shows the same result
     const sheetAfter = await request(http).get(`/daysheets/${washDay}`).set(auth(admin)).expect(200);
     expect(sheetAfter.body.rows.find((r: { subscriptionId: string }) => r.subscriptionId === subId)).toMatchObject({ status: 'done' });
+    // and so does the admin's plan list
+    const plans = await request(http).get('/subscriptions').set(auth(admin)).expect(200);
+    expect(plans.body.find((p: { id: string }) => p.id === subId).history[0]).toMatchObject({ date: washDay, status: 'done' });
 
     // the member is told the car was washed
     const inbox = await request(http).get('/notifications/me').set(auth(kim)).expect(200);
